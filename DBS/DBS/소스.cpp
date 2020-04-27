@@ -63,8 +63,8 @@ int main(void)
 	
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	// Direct Binary Search 디더링
-	//DBS();
-	GaussianFilter(256);
+	GaussianFilter(6);			// Gaussian Filtering
+	DBS();
 	QueryPerformanceCounter(&tot_endClock);
 
 	total_Time_CPU = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
@@ -102,24 +102,40 @@ void DBS()
 	int err = 0;
 	unsigned char pix_toggle = 0;
 	int flag = 0;
-
 	// 초기 디더링 작업
 	for (int y = 1; y < bph - 1; y++)
 	{
-		for (int x = 1; x < bpl - 1; x++)
+		if (y % 2 == 1)
 		{
-			pixE[y * bpl + x] += pix_ms[y * bpl + x];
-			pix_ms[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
-			quant_error = pixE[y * bpl + x] - pix_ms[y * bpl + x];
+			for (int x = 1; x < bpl - 1; x++)
+			{
+				pixE[y * bpl + x] += pix_ms[y * bpl + x];
+				pix_ms[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
+				quant_error = pixE[y * bpl + x] - pix_ms[y * bpl + x];
 
-			pixE[y * bpl + x + 1] += quant_error * 7 / 16;
-			pixE[(y + 1) * bpl + x - 1] += quant_error * 3 / 16;
-			pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
-			pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
+				pixE[y * bpl + x + 1] += quant_error * 7 / 16;
+				pixE[(y + 1) * bpl + x - 1] += quant_error * 3 / 16;
+				pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
+				pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
+			}
+		}
+		else
+		{
+			for (int x = bpl - 2; x >= 1; x--)
+			{
+				pixE[y * bpl + x] += pix_ms[y * bpl + x];
+				pix_ms[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
+				quant_error = pixE[y * bpl + x] - pix_ms[y * bpl + x];
+
+				pixE[y * bpl + x - 1] += quant_error * 7 / 16;
+				pixE[(y + 1) * bpl + x + 1] += quant_error * 3 / 16;
+				pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
+				pixE[(y + 1) * bpl + x - 1] += quant_error * 1 / 16;
+			}
 		}
 	}
 
-
+	/*
 	// 오차제곱이 최소가 될 때까지 반복...
 	while(1)
 	{
@@ -218,17 +234,21 @@ void DBS()
 		if (count == 0)
 			break;
 	}
+	*/
 }
 void GaussianFilter(float thresh)
 {
 	float g = thresh;
+	// 5 X 5 마스크
+	/*
 	float a = 1 / g;
 	float b = 4 / g;
 	float c = 6 / g;
-	float d = 16 / g;
+	float d = 12 / g;
 	float e = 24 / g;
 	float f = 36 / g;
 	// 가우시안 필터 마스크 배열
+	/*
 	float G[5][5] =
 	{
 		a, b, c, b, a,
@@ -237,16 +257,39 @@ void GaussianFilter(float thresh)
 		b, d, e, d, b,
 		a, b, c, b, a
 	};
-
-	for (int y = 2; y < bph - 2; y++)
+	for (int y = 1; y < bph - 1; y++)
 	{
-		for (int x = 2; x < bpl - 2; x++)
+		for (int x = 1; x < bpl - 1; x++)
 		{
-			for (int k = 0; k <= 4; k++)
+			for (int k = 0; k < 5; k++)
 			{
-				for (int l = 0; l < 4; l++)
+				for (int l = 0; l < 5; l++)
 				{
 					pix_ms[y * bpl + x] += pix[(y + k - 2) * bpl + (x + l - 2)] * G[k][l];
+				}
+			}
+		}
+	}
+	*/
+	// 3 X 3 마스크
+	float a = 0 / g;
+	float b = 1 / g;
+	float c = 2 / g;
+	float G[3][3] =
+	{
+		a, b, a,
+		b, c, b,
+		a, b, a
+	};
+	for (int y = 1; y < bph - 1; y++)
+	{
+		for (int x = 1; x < bpl - 1; x++)
+		{
+			for (int k = 0; k < 3; k++)
+			{
+				for (int l = 0; l < 3; l++)
+				{
+					pix_ms[y * bpl + x] += pix[(y + k - 1) * bpl + (x + l - 1)] * G[k][l];
 				}
 			}
 		}
