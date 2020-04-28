@@ -19,17 +19,39 @@ RGBQUAD * rgb;
 
 // 이미지 정보를 다루기 위해 사용하는 변수
 int bpl, bph;
-unsigned char* pix; // 원본 이미지 픽셀
-unsigned char* pix_ms; // 디더링을 할 픽셀값
+unsigned char* pix; // 원본 이미지
+unsigned char* pix_ms; // 가우시안 필터링을 한 이미지
+unsigned char* pix_hvs; // 하프톤 이미지
+double* err;
+double* CEP;
 int * pixE;
+
+// 가우시안 필터 가중치
+double g = 256;
+double a = 1 / g;
+double b = 4 / g;
+double c = 6 / g;
+double d = 12 / g;
+double e = 24 / g;
+double f = 36 / g;
+int halfcppsize = 2;
+
+// 가우시안 필터 마스크 배열
+double CPP[5][5] =
+{
+	a, b, c, b, a,
+	b, d, e, d, b,
+	c, e, f, e, c,
+	b, d, e, d, b,
+	a, b, c, b, a
+};
 
 char str[100];				// 파일명을 담을 문자열
 
-
-void GaussianFilter(float thresh);		// 가우시안 필터 적용.
-void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
+void GaussianFilter(float thresh);		// 가우시안 필터
 void DBS();					// Direct Binary Search 연산
-void Swap(int p1, int p2);	// p1, p2 좌표에 있는 픽셀값 교환
+//void XCORR();	// 상호상관함수
+void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 
 int main(void)
 {
@@ -54,16 +76,24 @@ int main(void)
 	memset(pix_ms, 0, sizeof(unsigned char) * bpl * bph);
 	//memcpy(pix_ms, pix, sizeof(unsigned char) * bpl * bph);
 
+	pix_hvs = (unsigned char *)malloc(sizeof(unsigned char) * (bpl + 5) * (bph + 5) * 2);
+	memset(pix_hvs, 0, sizeof(unsigned char) * (bpl + 5) * (bph + 5) * 2);
+	memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
+
+	err = (double *)malloc(sizeof(double) * bpl * bph);
+	memset(err, 0, sizeof(double) * bpl * bph);
+
+	CEP = (double *)malloc(sizeof(double) * (bpl + 5) * (bph + 5) * 2);
+	memset(CEP, 0, sizeof(double) * (bpl + 5) * (bph + 5) * 2);
+
 	pixE = (int *)malloc(sizeof(int) * bpl * bph);
 	memset(pixE, 0, sizeof(int) * bpl * bph);
 
 	QueryPerformanceFrequency(&tot_clockFreq);	// 시간을 측정하기위한 준비
 	total_Time_CPU = 0;
 
-	
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	// Direct Binary Search 디더링
-	GaussianFilter(6);			// Gaussian Filtering
 	DBS();
 	QueryPerformanceCounter(&tot_endClock);
 
@@ -71,37 +101,34 @@ int main(void)
 	printf("Total processing Time_CPU_Single : %f ms\n", total_Time_CPU * 1000);
 	system("pause");
 
-
 	sprintf(str, "DBS_Dither.bmp");
 	FwriteCPU(str);
-
-
-
 
 	free(rgb);
 	free(pix);
 	free(pix_ms);
+	free(pix_hvs);
+	free(err);
+	free(CEP);
 	free(pixE);
 	fclose(fp);
 	
 	return 0;
 }
 
-
-
 void DBS()
 {
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 	int count = 0;			// 최소제곱오차 값이 0이 아닐때까지 반복문을 돌리기위한 카운트 변수
-	//int eps = 0;
-	//int eps_min = 0;
-	int pix1 = 0;
-	int pix2 = 0;
-	int pix_min = 0;
-	int err_min = 0;
-	int err = 0;
-	unsigned char pix_toggle = 0;
-	int flag = 0;
+	double eps = 0;
+	double eps_min = 0;
+	double a0 = 0;
+	double a1 = 0;
+	double a0c = 0;
+	double a1c = 0;
+	unsigned char cpx = 0;
+	unsigned char cpy = 0;
+
 	// 초기 디더링 작업
 	for (int y = 1; y < bph - 1; y++)
 	{
@@ -109,9 +136,9 @@ void DBS()
 		{
 			for (int x = 1; x < bpl - 1; x++)
 			{
-				pixE[y * bpl + x] += pix_ms[y * bpl + x];
-				pix_ms[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
-				quant_error = pixE[y * bpl + x] - pix_ms[y * bpl + x];
+				pixE[y * bpl + x] += pix_hvs[y * bpl + x];
+				pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
+				quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
 
 				pixE[y * bpl + x + 1] += quant_error * 7 / 16;
 				pixE[(y + 1) * bpl + x - 1] += quant_error * 3 / 16;
@@ -123,9 +150,9 @@ void DBS()
 		{
 			for (int x = bpl - 2; x >= 1; x--)
 			{
-				pixE[y * bpl + x] += pix_ms[y * bpl + x];
-				pix_ms[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
-				quant_error = pixE[y * bpl + x] - pix_ms[y * bpl + x];
+				pixE[y * bpl + x] += pix_hvs[y * bpl + x];
+				pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
+				quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
 
 				pixE[y * bpl + x - 1] += quant_error * 7 / 16;
 				pixE[(y + 1) * bpl + x + 1] += quant_error * 3 / 16;
@@ -134,113 +161,153 @@ void DBS()
 			}
 		}
 	}
-
 	/*
-	// 오차제곱이 최소가 될 때까지 반복...
+	for (int y = 0; y < bph; y++)
+	{
+		for (int x = 0; x < bpl; x++)
+		{
+			err[y * bpl + x] = pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255;
+		}
+	}
+	XCORR();	// 상호관계함수 생성
+	// DBS 과정 시작..
 	while(1)
 	{
 		count = 0;
-		for (int y = 2; y < bph - 2; y++)
+		a0 = 0;
+		a1 = 0;
+		a0c = 0;
+		a1c = 0;
+		cpx = 0;
+		cpy = 0;
+
+		for (int i = 1; i < bph - 1; i++)
 		{
-			for (int x = 2; x < bpl - 2; x++)
+			for (int j = 1; j < bpl - 1; j++)
 			{
-				flag = 0;
-				pix1 = y * bpl + x;
-				pix2 = y * bpl + x;
-				// 현재픽셀값을 토글링
-				//pix_toggle = (unsigned char)(pix_ms[y * bpl + x] + 255) / 255 * 255;
-				//pixE[y * bpl + x] *= -1;
-				err_min = pix_ms[pix1] - pix[pix2];
-				// 현재픽셀과 인접한 8개의 픽셀과 교환하는 작업		
-				pix1 = (y - 1) * bpl + x - 1;
-				//Swap(pix1, pix2);
-				err = pix_ms[pix1] - pix[pix2];
-				if (err < err_min)
+				a0c = 0;
+				a1c = 0;
+				cpx = 0;
+				cpy = 0;
+				eps_min = 0;
+				for (int y = -1; y < 1; y++)
 				{
-					pix_min = pix1;
-					err_min = err;
-					//Swap(pix1, pix2);
-					flag = 1;
-				}								
-				pix1 = (y - 1) * bpl + x;
-				//Swap(pix1, pix2);
-				err = pix_ms[pix1] - pix[pix2];
-				if (err < err_min)
-				{
-					pix_min = pix1;
-					err_min = err;
-					//Swap(pix1, pix2);
-					flag = 1;
-				}					
-				pix1 = (y - 1) * bpl + x + 1;
-				//Swap(pix1, pix2);
-				err = pix_ms[pix1] - pix[pix2];
-				if (err < err_min)
-				{
-					pix_min = pix1;
-					err_min = err;
-					//Swap(pix1, pix2);
-					flag = 1;
-				}					
-				pix1 = y * bpl + x - 1;
-				//Swap(pix1, pix2);
-				err = pix_ms[pix1] - pix[pix2];
-				if (err < err_min)
-				{
-					pix_min = pix1;
-					err_min = err;
-					//Swap(pix1, pix2);
-					flag = 1;
+					if (i + y < 1 || i + y > bph)
+						continue;
+					
+					for (int x = -1; x < 1; x++)
+					{
+						if (j + x < 1 || j + x > bpl)
+							continue;
+						if (y == 0 && x == 0)
+						{
+							if (pix_hvs[i * bpl + j] == 255)
+							{
+								a0 = -1;
+								a1 = 0;
+							}
+							else
+							{
+								a0 = 1;
+								a1 = 0;
+							}
+						}
+						else
+						{
+							if (pix_hvs[(i + x) * bpl + (j + y)] != pix_hvs[i * bpl + j])
+							{
+								if (pix_hvs[i * bpl + j] == 255)
+								{
+									a0 = -1;
+									a1 = -a0;
+								}
+								else
+								{
+									a0 = 1;
+									a1 = -a0;
+								}
+							}
+							else
+							{
+								a0 = 0;
+								a1 = 0;
+							}
+						}
+						eps = (a0 * a0 + a1 * a1) * CPP[halfcppsize + 1][halfcppsize + 1]
+							+ 2 * a0 * a1 * CPP[halfcppsize + y + 1][halfcppsize + x + 1]
+							+ 2 * a0 * CEP[(i + halfcppsize) * (bpl + 5 - 1) + (j + halfcppsize)]
+							+ 2 * a1 * CEP[(i + y + halfcppsize) * (bpl + 5 - 1) + (j + x + halfcppsize)];
+						if (eps_min > eps)
+						{
+							eps_min = eps;
+							a0c = a0;
+							a1c = a1;
+							cpx = x;
+							cpy = y;
+						}
+					}
 				}
-				pix1 = y * bpl + x + 1;
-				//Swap(pix1, pix2);
-				err = pix_ms[pix1] - pix[pix2];
-				if (err < err_min)
+				if (eps_min < 0)
 				{
-					pix_min = pix1;
-					err_min = err;
-					//Swap(pix1, pix2);
-					flag = 1;
-				}					
-				pix1 = (y + 1) * bpl + x - 1;
-				//Swap(pix1, pix2);
-				err = pix_ms[pix1] - pix[pix2];
-				if (err < err_min)
-				{
-					pix_min = pix1;
-					err_min = err;
-					//Swap(pix1, pix2);
-					flag = 1;
+					for (int y = (-1) * halfcppsize; y < halfcppsize; y++)
+					{
+						for (int x = (-1) * halfcppsize; x < halfcppsize; x++)
+						{
+							CEP[(i + y + halfcppsize) * (bpl + 5 - 1) + (j + x + halfcppsize)] += a0c * CPP[y + halfcppsize + 1][x + halfcppsize + 1];
+						}
+					}
+					for (int y = (-1) * halfcppsize; y < halfcppsize; y++)
+					{
+						for (int x = (-1) * halfcppsize; x < halfcppsize; x++)
+						{
+							CEP[(i + y + cpy + halfcppsize) * (bpl + 5 - 1) + (j + x + cpx + halfcppsize)] += a1c * CPP[y + halfcppsize + 1][x + halfcppsize + 1];
+							//printf("%d\n", (i + y + cpy + halfcppsize) * (bpl + 5 - 1) + (j + x + cpx + halfcppsize));
+						}
+					}
+					pix_hvs[i * bpl + j] += (a0c) * 255;
+					pix_hvs[(cpy + i) * bpl + (j + cpx)] += (a1c) * 255;
+					//printf("%d\n", (cpy + i) * bpl + (j + cpx));
+					count++;
 				}
-				pix1 = (y + 1) * bpl + x + 1;
-				//Swap(pix1, pix2);
-				err = pix_ms[pix1] - pix[pix2];
-				if (err < err_min)
-				{
-					pix_min = pix1;
-					err_min = err;
-					//Swap(pix1, pix2);
-					flag = 1;
-				}	
-				if (flag == 0)
-					pix_ms[y * bpl + x] = (unsigned char)(pix_ms[y * bpl + x] + 255) / 255 * 255;
-				else
-					Swap(pix_min, pix2);
-				//if (err_min < 0)
-					//count++;
 			}
 		}
-
+		printf("%d\n", count);
 		if (count == 0)
 			break;
 	}
 	*/
 }
+/*
+// 상호상관함수
+void XCORR()
+{
+	double sum = 0;
+	for (int y = -4; y < bph; y++)
+	{
+		for (int x = -4; x < bpl; x++)
+		{
+			sum = 0;
+			for (int i = y; i < y + 5; i++)
+			{
+				for (int j = x; j < x + 5; j++)
+				{
+					if ((i >= 0 && j >= 0) && (i < bph && j < bpl))
+					{
+						sum += CPP[i - y][j - x] * err[i * bpl + j];
+					}
+				}
+			}
+			CEP[(y + 4) * (bpl + 5 - 1) + (x + 4)] = (double)sum;
+		}
+	}
+}
+*/
+
+// 가우시안 필터
 void GaussianFilter(float thresh)
 {
 	float g = thresh;
 	// 5 X 5 마스크
-	/*
 	float a = 1 / g;
 	float b = 4 / g;
 	float c = 6 / g;
@@ -248,7 +315,6 @@ void GaussianFilter(float thresh)
 	float e = 24 / g;
 	float f = 36 / g;
 	// 가우시안 필터 마스크 배열
-	/*
 	float G[5][5] =
 	{
 		a, b, c, b, a,
@@ -270,7 +336,7 @@ void GaussianFilter(float thresh)
 			}
 		}
 	}
-	*/
+	
 	// 3 X 3 마스크
 	float a = 0 / g;
 	float b = 1 / g;
@@ -294,25 +360,8 @@ void GaussianFilter(float thresh)
 			}
 		}
 	}
-
-
 }
 
-// 픽셀값들을 교환하는 함수
-void Swap(int p1, int p2)
-{
-	
-	unsigned char pix_tmp = 0;
-	pix_tmp = pix_ms[p1];
-	pix_ms[p1] = pix_ms[p2];
-	pix_ms[p2] = pix_tmp;
-	/*
-	int pixE_tmp = 0;
-	pixE_tmp = pixE[p1];
-	pixE[p1] = pixE[p2];
-	pixE[p2] = pixE_tmp;
-	*/
-}
 
 void FwriteCPU(char * fn)
 {
@@ -322,7 +371,7 @@ void FwriteCPU(char * fn)
 	fwrite(&bih, sizeof(bih), 1, fp2);
 	fwrite(rgb, sizeof(RGBQUAD), 256, fp2);
 
-	fwrite(pix_ms, sizeof(unsigned char), bpl * bph, fp2);
+	fwrite(pix_hvs, sizeof(unsigned char), bpl * bph, fp2);
 	//fwrite(pixE, sizeof(int), bpl * bph, fp2);
 	fclose(fp2);
 }
