@@ -24,7 +24,7 @@ unsigned char* pix_ms; // 가우시안 필터링을 한 이미지
 unsigned char* pix_hvs; // 하프톤 이미지
 double* err;
 int * pixE;
-
+/*
 // 가우시안 필터 가중치
 double g = 256;
 double a = 1 / g;
@@ -43,17 +43,22 @@ double G[5][5] =
 	b, d, e, d, b,
 	a, b, c, b, a
 };
-
-double CPP[9][9];
-int halfcppsize = 4;
+*/
+double G[7][7];
+int fs = 7;	// 가우시안 필터 사이즈
+double CPP[13][13];
+int halfcppsize = 6;
 double* CEP;
 
 char str[100];				// 파일명을 담을 문자열
 
 //void GaussianFilter(float thresh);		// 가우시안 필터
 void DBS();					// Direct Binary Search 연산
+void GaussianFilter();		// 가우시안 필터 생성
 void CONV();	// 2차원 컨볼루션 연산
 void XCORR();	// 상호상관관계 연산
+
+void Dither();				// 초기 디더링 작업
 void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 
 int main(void)
@@ -79,15 +84,15 @@ int main(void)
 	memset(pix_ms, 0, sizeof(unsigned char) * bpl * bph);
 	//memcpy(pix_ms, pix, sizeof(unsigned char) * bpl * bph);
 
-	pix_hvs = (unsigned char *)malloc(sizeof(unsigned char) * (bpl + 5) * (bph + 5) * 2);
-	memset(pix_hvs, 0, sizeof(unsigned char) * (bpl + 5) * (bph + 5) * 2);
+	pix_hvs = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
+	memset(pix_hvs, 0, sizeof(unsigned char) * bpl * bph);
 	memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
 
 	err = (double *)malloc(sizeof(double) * bpl * bph);
 	memset(err, 0, sizeof(double) * bpl * bph);
 
-	CEP = (double *)malloc(sizeof(double) * (bpl + 5) * (bph + 5) * 2);
-	memset(CEP, 0, sizeof(double) * (bpl + 5) * (bph + 5) * 2);
+	CEP = (double *)malloc(sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
+	memset(CEP, 0, sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
 
 	pixE = (int *)malloc(sizeof(int) * bpl * bph);
 	memset(pixE, 0, sizeof(int) * bpl * bph);
@@ -121,7 +126,6 @@ int main(void)
 
 void DBS()
 {
-	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 	int count = 0;			// 최소제곱오차 값이 0이 아닐때까지 반복문을 돌리기위한 카운트 변수
 	double eps = 0;
 	double eps_min = 0;
@@ -129,42 +133,12 @@ void DBS()
 	double a1 = 0;
 	double a0c = 0;
 	double a1c = 0;
-	unsigned char cpx = 0;
-	unsigned char cpy = 0;
+	int cpx = 0;
+	int cpy = 0;
 
-	// 초기 디더링 작업 (양방향 Floyd and Steinberg Dithering) 
-	for (int y = 1; y < bph - 1; y++)
-	{
-		if (y % 2 == 1)
-		{
-			for (int x = 1; x < bpl - 1; x++)
-			{
-				pixE[y * bpl + x] += pix_hvs[y * bpl + x];
-				pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
-				quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
+	Dither();				// 초기 디더링 작업 (양방향 Floyd and Steinberg Dithering) 
 
-				pixE[y * bpl + x + 1] += quant_error * 7 / 16;
-				pixE[(y + 1) * bpl + x - 1] += quant_error * 3 / 16;
-				pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
-				pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
-			}
-		}
-		else
-		{
-			for (int x = bpl - 2; x >= 1; x--)
-			{
-				pixE[y * bpl + x] += pix_hvs[y * bpl + x];
-				pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
-				quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
-
-				pixE[y * bpl + x - 1] += quant_error * 7 / 16;
-				pixE[(y + 1) * bpl + x + 1] += quant_error * 3 / 16;
-				pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
-				pixE[(y + 1) * bpl + x - 1] += quant_error * 1 / 16;
-			}
-		}
-	}
-
+	GaussianFilter();		// 가우시안 필터 생성
 	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
 	for (int y = 0; y < bph; y++)
 	{
@@ -219,7 +193,7 @@ void DBS()
 						}
 						else
 						{
-							if (pix_hvs[(i + x) * bpl + (j + y)] != pix_hvs[i * bpl + j])
+							if (pix_hvs[(i + y) * bpl + (j + x)] != pix_hvs[i * bpl + j])
 							{
 								if (pix_hvs[i * bpl + j] == 255)
 								{
@@ -240,8 +214,8 @@ void DBS()
 						}
 						eps = (a0 * a0 + a1 * a1) * CPP[halfcppsize + 1][halfcppsize + 1]
 							+ 2 * a0 * a1 * CPP[halfcppsize + y + 1][halfcppsize + x + 1]
-							+ 2 * a0 * CEP[(i + halfcppsize) * (bpl + 5 - 1) + (j + halfcppsize)]
-							+ 2 * a1 * CEP[(i + y + halfcppsize) * (bpl + 5 - 1) + (j + x + halfcppsize)];
+							+ 2 * a0 * CEP[(i + halfcppsize) * (bpl + halfcppsize * 2) + (j + halfcppsize)]
+							+ 2 * a1 * CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)];
 						if (eps_min > eps)
 						{
 							eps_min = eps;
@@ -258,54 +232,68 @@ void DBS()
 					{
 						for (int x = (-1) * halfcppsize; x < halfcppsize; x++)
 						{
-							CEP[(i + y + halfcppsize) * (bpl + 5 - 1) + (j + x + halfcppsize)] += a0c * CPP[y + halfcppsize + 1][x + halfcppsize + 1];
+							CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)] += a0c * CPP[y + halfcppsize + 1][x + halfcppsize + 1];
 						}
 					}
 					for (int y = (-1) * halfcppsize; y < halfcppsize; y++)
 					{
 						for (int x = (-1) * halfcppsize; x < halfcppsize; x++)
 						{
-							CEP[(i + y + cpy + halfcppsize) * (bpl + 5 - 1) + (j + x + cpx + halfcppsize)] += a1c * CPP[y + halfcppsize + 1][x + halfcppsize + 1];
-							//printf("%d\n", (i + y + cpy + halfcppsize) * (bpl + 5 - 1) + (j + x + cpx + halfcppsize));
+							CEP[(i + y + cpy + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += a1c * CPP[y + halfcppsize + 1][x + halfcppsize + 1];
 						}
 					}
 					pix_hvs[i * bpl + j] += (unsigned char)(a0c) * 255;
 					pix_hvs[(cpy + i) * bpl + (j + cpx)] += (unsigned char)(a1c) * 255;
-					//printf("%d\n", (cpy + i) * bpl + (j + cpx));
+					//printf("%u %u\n", cpy, cpx);
 					count++;
 				}
 			}
 		}
-		printf("%d\n", count);
-		if (count == 0)
+		//printf("%d\n", count);
+		if (count == 70)
 			break;
+	}
+}
+// 가우시안 필터 생성
+void GaussianFilter()
+{
+	int d = (fs - 1) / 6;
+	int gaulen = (fs - 1) / 2;
+	double c;
+	for (int k = (-1) * gaulen; k < gaulen; k++)
+	{
+		for (int l = (-1) * gaulen; l < gaulen; l++)
+		{
+			c = (k * k + l * l) / (2 * d * d);
+			G[k + gaulen + 1][l + gaulen + 1] = exp((-1) * c) / (2 * 3.14 * d * d);
+		}
 	}
 }
 // 2차원 컨볼루션 연산
 void CONV()
 {
-	for (int i = 0; i < 9; i++)
+	double sum = 0;
+	for (int i = 0; i < halfcppsize * 2 + 1; i++)
 	{
-		for (int j = 0; j < 9; j++)
+		for (int j = 0; j < halfcppsize * 2 + 1; j++)
 		{
 			CPP[i][j] = 0;
 		}
 	}
-	double sum = 0;
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < fs; i++)
 	{
-		for (int j = 0; j < 5; j++)
+		for (int j = 0; j < fs; j++)
 		{
 			sum = 0;
-			for(int k = -2; k < 3; k++)
+			for(int k = (-1) * (fs / 2); k < (fs / 2) + 1; k++)
 			{
-				for (int l = -2; l < 3; l++)
+				for (int l = (-1) * (fs / 2); l < (fs / 2); l++)
 				{
-					if(i + k >= 0 && j + l < 5)
+					if(i + k >= 0 && j + l < fs)
 						sum += G[i + k][j + l] * G[i][j];
 				}
 			}
-			CPP[i + 2][j + 2] = sum;
+			CPP[i + (fs / 2)][j + (fs / 2)] = sum;
 		}
 	}
 }
@@ -313,14 +301,14 @@ void CONV()
 void XCORR()
 {
 	double sum = 0;
-	for (int y = -4; y < bph; y++)
+	for (int y = (-1) * halfcppsize * 2; y < bph; y++)
 	{
-		for (int x = -4; x < bpl; x++)
+		for (int x = (-1) * halfcppsize * 2; x < bpl; x++)
 		{
 			sum = 0;
-			for (int i = y; i < y + 5; i++)
+			for (int i = y; i < y + halfcppsize * 2 + 1; i++)
 			{
-				for (int j = x; j < x + 5; j++)
+				for (int j = x; j < x + halfcppsize * 2 + 1; j++)
 				{
 					if ((i >= 0 && j >= 0) && (i < bph && j < bpl))
 					{
@@ -328,7 +316,7 @@ void XCORR()
 					}
 				}
 			}
-			CEP[(y + 4) * (bpl + 5 - 1) + (x + 4)] = (double)sum;
+			CEP[(y + halfcppsize * 2) * (bpl + halfcppsize * 2) + (x + halfcppsize * 2)] = (double)sum;
 		}
 	}
 }
@@ -393,7 +381,42 @@ void GaussianFilter(float thresh)
 	}
 }
 */
+void Dither()
+{
+	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
+	for (int y = 1; y < bph - 1; y++)
+	{
+		if (y % 2 == 1)
+		{
+			for (int x = 1; x < bpl - 1; x++)
+			{
+				pixE[y * bpl + x] += pix_hvs[y * bpl + x];
+				pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
+				quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
+
+				pixE[y * bpl + x + 1] += quant_error * 7 / 16;
+				pixE[(y + 1) * bpl + x - 1] += quant_error * 3 / 16;
+				pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
+				pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
+			}
+		}
+		else
+		{
+			for (int x = bpl - 2; x >= 1; x--)
+			{
+				pixE[y * bpl + x] += pix_hvs[y * bpl + x];
+				pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
+				quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
+
+				pixE[y * bpl + x - 1] += quant_error * 7 / 16;
+				pixE[(y + 1) * bpl + x + 1] += quant_error * 3 / 16;
+				pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
+				pixE[(y + 1) * bpl + x - 1] += quant_error * 1 / 16;
+			}
+		}
+	}
+}
 void FwriteCPU(char * fn)
 {
 	// 데이터 픽셀값을 bmp파일로 쓴다.
