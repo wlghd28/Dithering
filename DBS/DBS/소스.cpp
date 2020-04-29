@@ -23,7 +23,6 @@ unsigned char* pix; // 원본 이미지
 unsigned char* pix_ms; // 가우시안 필터링을 한 이미지
 unsigned char* pix_hvs; // 하프톤 이미지
 double* err;
-double* CEP;
 int * pixE;
 
 // 가우시안 필터 가중치
@@ -34,10 +33,9 @@ double c = 6 / g;
 double d = 12 / g;
 double e = 24 / g;
 double f = 36 / g;
-int halfcppsize = 2;
 
 // 가우시안 필터 마스크 배열
-double CPP[5][5] =
+double G[5][5] =
 {
 	a, b, c, b, a,
 	b, d, e, d, b,
@@ -46,11 +44,16 @@ double CPP[5][5] =
 	a, b, c, b, a
 };
 
+double CPP[9][9];
+int halfcppsize = 4;
+double* CEP;
+
 char str[100];				// 파일명을 담을 문자열
 
-void GaussianFilter(float thresh);		// 가우시안 필터
+//void GaussianFilter(float thresh);		// 가우시안 필터
 void DBS();					// Direct Binary Search 연산
-//void XCORR();	// 상호상관함수
+void CONV();	// 2차원 컨볼루션 연산
+void XCORR();	// 상호상관관계 연산
 void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 
 int main(void)
@@ -129,7 +132,7 @@ void DBS()
 	unsigned char cpx = 0;
 	unsigned char cpy = 0;
 
-	// 초기 디더링 작업
+	// 초기 디더링 작업 (양방향 Floyd and Steinberg Dithering) 
 	for (int y = 1; y < bph - 1; y++)
 	{
 		if (y % 2 == 1)
@@ -161,7 +164,8 @@ void DBS()
 			}
 		}
 	}
-	/*
+
+	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
 	for (int y = 0; y < bph; y++)
 	{
 		for (int x = 0; x < bpl; x++)
@@ -169,7 +173,8 @@ void DBS()
 			err[y * bpl + x] = pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255;
 		}
 	}
-	XCORR();	// 상호관계함수 생성
+	XCORR();	// 상호관계연산 행렬 생성 (CEP)
+
 	// DBS 과정 시작..
 	while(1)
 	{
@@ -219,12 +224,12 @@ void DBS()
 								if (pix_hvs[i * bpl + j] == 255)
 								{
 									a0 = -1;
-									a1 = -a0;
+									a1 = (-1) * a0;
 								}
 								else
 								{
 									a0 = 1;
-									a1 = -a0;
+									a1 = (-1) * a0;
 								}
 							}
 							else
@@ -264,8 +269,8 @@ void DBS()
 							//printf("%d\n", (i + y + cpy + halfcppsize) * (bpl + 5 - 1) + (j + x + cpx + halfcppsize));
 						}
 					}
-					pix_hvs[i * bpl + j] += (a0c) * 255;
-					pix_hvs[(cpy + i) * bpl + (j + cpx)] += (a1c) * 255;
+					pix_hvs[i * bpl + j] += (unsigned char)(a0c) * 255;
+					pix_hvs[(cpy + i) * bpl + (j + cpx)] += (unsigned char)(a1c) * 255;
 					//printf("%d\n", (cpy + i) * bpl + (j + cpx));
 					count++;
 				}
@@ -275,10 +280,36 @@ void DBS()
 		if (count == 0)
 			break;
 	}
-	*/
 }
-/*
-// 상호상관함수
+// 2차원 컨볼루션 연산
+void CONV()
+{
+	for (int i = 0; i < 9; i++)
+	{
+		for (int j = 0; j < 9; j++)
+		{
+			CPP[i][j] = 0;
+		}
+	}
+	double sum = 0;
+	for (int i = 0; i < 5; i++)
+	{
+		for (int j = 0; j < 5; j++)
+		{
+			sum = 0;
+			for(int k = -2; k < 3; k++)
+			{
+				for (int l = -2; l < 3; l++)
+				{
+					if(i + k >= 0 && j + l < 5)
+						sum += G[i + k][j + l] * G[i][j];
+				}
+			}
+			CPP[i + 2][j + 2] = sum;
+		}
+	}
+}
+// 상호상관관계 연산
 void XCORR()
 {
 	double sum = 0;
@@ -301,8 +332,8 @@ void XCORR()
 		}
 	}
 }
-*/
 
+/*
 // 가우시안 필터
 void GaussianFilter(float thresh)
 {
@@ -361,7 +392,7 @@ void GaussianFilter(float thresh)
 		}
 	}
 }
-
+*/
 
 void FwriteCPU(char * fn)
 {
