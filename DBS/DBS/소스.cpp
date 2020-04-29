@@ -6,7 +6,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #pragma warning(disable : 4996)
-
 // 시간을 계산하기 위한 변수
 double total_Time_GPU, total_Time_CPU, tmp_time;
 LARGE_INTEGER beginClock, endClock, clockFreq;
@@ -24,30 +23,12 @@ unsigned char* pix_ms; // 가우시안 필터링을 한 이미지
 unsigned char* pix_hvs; // 하프톤 이미지
 double* err;
 int * pixE;
-/*
-// 가우시안 필터 가중치
-double g = 256;
-double a = 1 / g;
-double b = 4 / g;
-double c = 6 / g;
-double d = 12 / g;
-double e = 24 / g;
-double f = 36 / g;
 
-// 가우시안 필터 마스크 배열
-double G[5][5] =
-{
-	a, b, c, b, a,
-	b, d, e, d, b,
-	c, e, f, e, c,
-	b, d, e, d, b,
-	a, b, c, b, a
-};
-*/
-double G[7][7];
-int fs = 7;	// 가우시안 필터 사이즈
-double CPP[13][13];
-int halfcppsize = 6;
+double pi = 3.141592553589792;
+double G[5][5];
+int fs = 5;	// 가우시안 필터 사이즈
+double CPP[9][9];
+int halfcppsize = 4;
 double* CEP;
 
 char str[100];				// 파일명을 담을 문자열
@@ -91,8 +72,8 @@ int main(void)
 	err = (double *)malloc(sizeof(double) * bpl * bph);
 	memset(err, 0, sizeof(double) * bpl * bph);
 
-	CEP = (double *)malloc(sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
-	memset(CEP, 0, sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
+	CEP = (double *)malloc(sizeof(double) * ((bpl + halfcppsize * 2) + 1) * ((bph + halfcppsize * 2) + 1));
+	memset(CEP, 0, sizeof(double) * ((bpl + halfcppsize * 2) + 1) * ((bph + halfcppsize * 2) + 1));
 
 	pixE = (int *)malloc(sizeof(int) * bpl * bph);
 	memset(pixE, 0, sizeof(int) * bpl * bph);
@@ -107,7 +88,7 @@ int main(void)
 
 	total_Time_CPU = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
 	printf("Total processing Time_CPU_Single : %f ms\n", total_Time_CPU * 1000);
-	system("pause");
+	//system("pause");
 
 	sprintf(str, "DBS_Dither.bmp");
 	FwriteCPU(str);
@@ -160,23 +141,23 @@ void DBS()
 		cpx = 0;
 		cpy = 0;
 
-		for (int i = 1; i < bph - 1; i++)
+		for (int i = 1; i < bph; i++)
 		{
-			for (int j = 1; j < bpl - 1; j++)
+			for (int j = 1; j < bpl; j++)
 			{
 				a0c = 0;
 				a1c = 0;
 				cpx = 0;
 				cpy = 0;
 				eps_min = 0;
-				for (int y = -1; y < 1; y++)
+				for (int y = -1; y <= 1; y++)
 				{
-					if (i + y < 1 || i + y > bph)
+					if (i + y < 1 || i + y >= bph)
 						continue;
 					
-					for (int x = -1; x < 1; x++)
+					for (int x = -1; x <= 1; x++)
 					{
-						if (j + x < 1 || j + x > bpl)
+						if (j + x < 1 || j + x >= bpl)
 							continue;
 						if (y == 0 && x == 0)
 						{
@@ -212,8 +193,8 @@ void DBS()
 								a1 = 0;
 							}
 						}
-						eps = (a0 * a0 + a1 * a1) * CPP[halfcppsize + 1][halfcppsize + 1]
-							+ 2 * a0 * a1 * CPP[halfcppsize + y + 1][halfcppsize + x + 1]
+						eps = (a0 * a0 + a1 * a1) * CPP[halfcppsize][halfcppsize]
+							+ 2 * a0 * a1 * CPP[halfcppsize + y][halfcppsize + x]
 							+ 2 * a0 * CEP[(i + halfcppsize) * (bpl + halfcppsize * 2) + (j + halfcppsize)]
 							+ 2 * a1 * CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)];
 						if (eps_min > eps)
@@ -228,44 +209,43 @@ void DBS()
 				}
 				if (eps_min < 0)
 				{
-					for (int y = (-1) * halfcppsize; y < halfcppsize; y++)
+					for (int y = (-1) * halfcppsize; y <= halfcppsize; y++)
 					{
-						for (int x = (-1) * halfcppsize; x < halfcppsize; x++)
+						for (int x = (-1) * halfcppsize; x <= halfcppsize; x++)
 						{
-							CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)] += a0c * CPP[y + halfcppsize + 1][x + halfcppsize + 1];
+							CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)] += a0c * CPP[y + halfcppsize][x + halfcppsize];
 						}
 					}
-					for (int y = (-1) * halfcppsize; y < halfcppsize; y++)
+					for (int y = (-1) * halfcppsize; y <= halfcppsize; y++)
 					{
-						for (int x = (-1) * halfcppsize; x < halfcppsize; x++)
+						for (int x = (-1) * halfcppsize; x <= halfcppsize; x++)
 						{
-							CEP[(i + y + cpy + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += a1c * CPP[y + halfcppsize + 1][x + halfcppsize + 1];
+							CEP[(i + y + cpy + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += a1c * CPP[y + halfcppsize][x + halfcppsize];
 						}
 					}
 					pix_hvs[i * bpl + j] += (unsigned char)(a0c) * 255;
 					pix_hvs[(cpy + i) * bpl + (j + cpx)] += (unsigned char)(a1c) * 255;
-					//printf("%u %u\n", cpy, cpx);
 					count++;
 				}
 			}
 		}
-		//printf("%d\n", count);
-		if (count == 70)
+		printf("%d\n", count);
+		if (count == 0)
 			break;
 	}
 }
 // 가우시안 필터 생성
 void GaussianFilter()
 {
-	int d = (fs - 1) / 6;
+	int d = 2;
 	int gaulen = (fs - 1) / 2;
 	double c;
-	for (int k = (-1) * gaulen; k < gaulen; k++)
+	for (int k = (-1) * gaulen; k <= gaulen; k++)
 	{
-		for (int l = (-1) * gaulen; l < gaulen; l++)
+		for (int l = (-1) * gaulen; l <= gaulen; l++)
 		{
 			c = (k * k + l * l) / (2 * d * d);
-			G[k + gaulen + 1][l + gaulen + 1] = exp((-1) * c) / (2 * 3.14 * d * d);
+			G[k + gaulen + 1][l + gaulen + 1] = exp((-1) * c) / (2 * pi * d * d);
 		}
 	}
 }
@@ -273,27 +253,22 @@ void GaussianFilter()
 void CONV()
 {
 	double sum = 0;
-	for (int i = 0; i < halfcppsize * 2 + 1; i++)
+	for (int y = (-1) * fs + 1; y < fs; y++)
 	{
-		for (int j = 0; j < halfcppsize * 2 + 1; j++)
-		{
-			CPP[i][j] = 0;
-		}
-	}
-	for (int i = 0; i < fs; i++)
-	{
-		for (int j = 0; j < fs; j++)
+		for (int x = (-1) * fs + 1; x < fs; x++)
 		{
 			sum = 0;
-			for(int k = (-1) * (fs / 2); k < (fs / 2) + 1; k++)
+			for (int i = y; i < y + fs; i++)
 			{
-				for (int l = (-1) * (fs / 2); l < (fs / 2); l++)
+				for (int j = x; j < x + fs; j++)
 				{
-					if(i + k >= 0 && j + l < fs)
-						sum += G[i + k][j + l] * G[i][j];
+					if ((i >= 0 && j >= 0) && (i < fs && j < fs))
+					{
+						sum += G[i - y][j - x] * G[i][j];
+					}
 				}
 			}
-			CPP[i + (fs / 2)][j + (fs / 2)] = sum;
+			CPP[(y + fs - 1)][(x + fs - 1)] = (double)sum;
 		}
 	}
 }
