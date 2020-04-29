@@ -25,10 +25,10 @@ double* err;
 int * pixE;
 
 double pi = 3.141592553589792;
-double G[5][5];
-int fs = 5;	// 가우시안 필터 사이즈
-double CPP[9][9];
-int halfcppsize = 4;
+double G[7][7];
+int fs = 7;	// 가우시안 필터 사이즈
+double CPP[13][13];
+int halfcppsize = 6;
 double* CEP;
 
 char str[100];				// 파일명을 담을 문자열
