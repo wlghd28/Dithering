@@ -5,6 +5,9 @@
 #include <tchar.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <math.h>
+#include <time.h>
+
 #pragma warning(disable : 4996)
 // 시간을 계산하기 위한 변수
 double total_Time_GPU, total_Time_CPU, tmp_time;
@@ -24,7 +27,7 @@ unsigned char* pix_hvs; // 하프톤 이미지
 double* err;
 int * pixE;
 
-double pi = 3.141592553589792;
+double pi = 3.14159265358979323846264338327950288419716939937510;
 double G[7][7];
 int fs = 7;	// 가우시안 필터 사이즈
 double CPP[13][13];
@@ -67,27 +70,27 @@ int main(void)
 
 	pix_hvs = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
 	memset(pix_hvs, 0, sizeof(unsigned char) * bpl * bph);
-	memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
+	//memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
 
 	err = (double *)malloc(sizeof(double) * bpl * bph);
 	memset(err, 0, sizeof(double) * bpl * bph);
 
-	CEP = (double *)malloc(sizeof(double) * ((bpl + halfcppsize * 2) + 1) * ((bph + halfcppsize * 2) + 1));
-	memset(CEP, 0, sizeof(double) * ((bpl + halfcppsize * 2) + 1) * ((bph + halfcppsize * 2) + 1));
+	CEP = (double *)malloc(sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
+	memset(CEP, 0, sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
 
 	pixE = (int *)malloc(sizeof(int) * bpl * bph);
 	memset(pixE, 0, sizeof(int) * bpl * bph);
 
 	QueryPerformanceFrequency(&tot_clockFreq);	// 시간을 측정하기위한 준비
-	total_Time_CPU = 0;
 
+	total_Time_CPU = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	// Direct Binary Search 디더링
 	DBS();
 	QueryPerformanceCounter(&tot_endClock);
 
 	total_Time_CPU = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
-	printf("Total processing Time_CPU_Single : %f ms\n", total_Time_CPU * 1000);
+	printf("Total processing Time_DBS : %f ms\n", total_Time_CPU * 1000);
 	//system("pause");
 
 	sprintf(str, "DBS_Dither.bmp");
@@ -110,14 +113,14 @@ void DBS()
 	int count = 0;			// 최소제곱오차 값이 0이 아닐때까지 반복문을 돌리기위한 카운트 변수
 	double eps = 0;
 	double eps_min = 0;
-	double a0 = 0;
-	double a1 = 0;
-	double a0c = 0;
-	double a1c = 0;
+	int a0 = 0;
+	int a1 = 0;
+	int a0c = 0;
+	int a1c = 0;
 	int cpx = 0;
 	int cpy = 0;
 
-	Dither();				// 초기 디더링 작업 (양방향 Floyd and Steinberg Dithering) 
+	//Dither();				// 초기 디더링 작업 (양방향 Floyd and Steinberg Dithering) 
 
 	GaussianFilter();		// 가우시안 필터 생성
 	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
@@ -141,9 +144,9 @@ void DBS()
 		cpx = 0;
 		cpy = 0;
 
-		for (int i = 1; i < bph; i++)
+		for (int i = 0; i < bph; i++)
 		{
-			for (int j = 1; j < bpl; j++)
+			for (int j = 0; j < bpl; j++)
 			{
 				a0c = 0;
 				a1c = 0;
@@ -152,12 +155,12 @@ void DBS()
 				eps_min = 0;
 				for (int y = -1; y <= 1; y++)
 				{
-					if (i + y < 1 || i + y >= bph)
+					if (i + y < 0 || i + y >= bph)
 						continue;
 					
 					for (int x = -1; x <= 1; x++)
 					{
-						if (j + x < 1 || j + x >= bpl)
+						if (j + x < 0 || j + x >= bpl)
 							continue;
 						if (y == 0 && x == 0)
 						{
@@ -237,7 +240,7 @@ void DBS()
 // 가우시안 필터 생성
 void GaussianFilter()
 {
-	int d = 2;
+	int d = 1;
 	int gaulen = (fs - 1) / 2;
 	double c;
 	for (int k = (-1) * gaulen; k <= gaulen; k++)
@@ -281,9 +284,9 @@ void XCORR()
 		for (int x = (-1) * halfcppsize * 2; x < bpl; x++)
 		{
 			sum = 0;
-			for (int i = y; i < y + halfcppsize * 2 + 1; i++)
+			for (int i = y; i <= y + halfcppsize * 2; i++)
 			{
-				for (int j = x; j < x + halfcppsize * 2 + 1; j++)
+				for (int j = x; j <= x + halfcppsize * 2; j++)
 				{
 					if ((i >= 0 && j >= 0) && (i < bph && j < bpl))
 					{
@@ -358,6 +361,8 @@ void GaussianFilter(float thresh)
 */
 void Dither()
 {
+	// 양방향
+	/*
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
 	for (int y = 1; y < bph - 1; y++)
@@ -391,6 +396,36 @@ void Dither()
 			}
 		}
 	}
+	*/
+	// 단방향
+	/*
+	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
+
+	for (int y = 1; y < bph - 1; y++)
+	{
+		for (int x = 1; x < bpl - 1; x++)
+		{
+			pixE[y * bpl + x] += pix_hvs[y * bpl + x];
+			pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
+			quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
+
+			pixE[y * bpl + x + 1] += quant_error * 7 / 16;
+			pixE[(y + 1) * bpl + x - 1] += quant_error * 3 / 16;
+			pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
+			pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
+		}
+	}
+	*/
+	/*
+	// Thresh Hold
+	for (int y = 1; y < bph - 1; y++)
+	{
+		for (int x = 1; x < bpl - 1; x++)
+		{
+			pix_hvs[y * bpl + x] = pix[y * bpl + x] / 128 * 255;
+		}
+	}
+	*/
 }
 void FwriteCPU(char * fn)
 {
