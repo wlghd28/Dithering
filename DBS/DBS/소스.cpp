@@ -22,7 +22,7 @@ RGBQUAD * rgb;
 // 이미지 정보를 다루기 위해 사용하는 변수
 int bpl, bph;
 unsigned char* pix; // 원본 이미지
-unsigned char* pix_ms; // 가우시안 필터링을 한 이미지
+//unsigned char* pix_ms; // 가우시안 필터링을 한 이미지
 unsigned char* pix_hvs; // 하프톤 이미지
 double* err;
 int * pixE;
@@ -64,13 +64,15 @@ int main(void)
 	memset(pix, 0, sizeof(unsigned char) * bpl * bph);
 	fread(pix, sizeof(unsigned char), bpl * bph, fp);
 
+	/*
 	pix_ms = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
 	memset(pix_ms, 0, sizeof(unsigned char) * bpl * bph);
-	//memcpy(pix_ms, pix, sizeof(unsigned char) * bpl * bph);
+	memcpy(pix_ms, pix, sizeof(unsigned char) * bpl * bph);
+	*/
 
 	pix_hvs = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
 	memset(pix_hvs, 0, sizeof(unsigned char) * bpl * bph);
-	//memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
+	memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
 
 	err = (double *)malloc(sizeof(double) * bpl * bph);
 	memset(err, 0, sizeof(double) * bpl * bph);
@@ -98,7 +100,7 @@ int main(void)
 
 	free(rgb);
 	free(pix);
-	free(pix_ms);
+	//free(pix_ms);
 	free(pix_hvs);
 	free(err);
 	free(CEP);
@@ -120,7 +122,7 @@ void DBS()
 	int cpx = 0;
 	int cpy = 0;
 
-	//Dither();				// 초기 디더링 작업 (양방향 Floyd and Steinberg Dithering) 
+	Dither();				// 초기 디더링 작업 (양방향 Floyd and Steinberg Dithering) 
 
 	GaussianFilter();		// 가우시안 필터 생성
 	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
@@ -415,8 +417,7 @@ void Dither()
 			pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
 		}
 	}
-	*/
-	/*
+	*/	
 	// Thresh Hold
 	for (int y = 1; y < bph - 1; y++)
 	{
@@ -425,7 +426,6 @@ void Dither()
 			pix_hvs[y * bpl + x] = pix[y * bpl + x] / 128 * 255;
 		}
 	}
-	*/
 }
 void FwriteCPU(char * fn)
 {
