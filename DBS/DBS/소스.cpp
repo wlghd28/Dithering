@@ -8,6 +8,7 @@
 #include <math.h>
 #include <time.h>
 
+
 #pragma warning(disable : 4996)
 // 시간을 계산하기 위한 변수
 double total_Time_GPU, total_Time_CPU, tmp_time;
@@ -39,6 +40,7 @@ char str[100];				// 파일명을 담을 문자열
 //void GaussianFilter(float thresh);		// 가우시안 필터
 void DBS();					// Direct Binary Search 연산
 void GaussianFilter();		// 가우시안 필터 생성
+double GaussianRandom();		// 정규분포 난수 생성
 void CONV();	// 2차원 컨볼루션 연산
 void XCORR();	// 상호상관관계 연산
 
@@ -48,7 +50,7 @@ void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 int main(void)
 {
 	FILE * fp;
-	fp = fopen("EDIMAGE.bmp", "rb");
+	fp = fopen("newEDIMAGE.bmp", "rb");
 
 	fread(&bfh, sizeof(bfh), 1, fp);
 	fread(&bih, sizeof(bih), 1, fp);
@@ -72,7 +74,7 @@ int main(void)
 
 	pix_hvs = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
 	memset(pix_hvs, 0, sizeof(unsigned char) * bpl * bph);
-	memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
+	//memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
 
 	err = (double *)malloc(sizeof(double) * bpl * bph);
 	memset(err, 0, sizeof(double) * bpl * bph);
@@ -95,7 +97,7 @@ int main(void)
 	printf("Total processing Time_DBS : %f ms\n", total_Time_CPU * 1000);
 	//system("pause");
 
-	sprintf(str, "DBS_Dither.bmp");
+	sprintf(str, "new_DBS_Dither.bmp");
 	FwriteCPU(str);
 
 	free(rgb);
@@ -361,6 +363,21 @@ void GaussianFilter(float thresh)
 	}
 }
 */
+// 
+double GaussianRandom()
+{
+	double v1, v2, s;
+
+	do {
+		v1 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
+		v2 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
+		s = v1 * v1 + v2 * v2;
+	} while (s >= 1 || s == 0);
+
+	s = sqrt((-2 * log(s)) / s);
+
+	return v1 * s;
+}
 void Dither()
 {
 	// 양방향
@@ -417,7 +434,8 @@ void Dither()
 			pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
 		}
 	}
-	*/	
+	*/
+	
 	// Thresh Hold
 	for (int y = 1; y < bph - 1; y++)
 	{
@@ -426,6 +444,25 @@ void Dither()
 			pix_hvs[y * bpl + x] = pix[y * bpl + x] / 128 * 255;
 		}
 	}
+	
+	// 정규분포 난수로 하프톤이미지 생성
+	/*
+	srand(time(NULL));
+	double tmp;
+
+	for (int y = 1; y < bph - 1; y++)
+	{
+		for (int x = 1; x < bpl - 1; x++)
+		{
+			tmp = GaussianRandom();
+			//printf("%lf\n", tmp);
+			if (tmp > 0.5)
+			{
+				pix_hvs[y * bpl + x] = 255;
+			}
+		}
+	}
+	*/
 }
 void FwriteCPU(char * fn)
 {
