@@ -40,7 +40,7 @@ char str[100];				// 파일명을 담을 문자열
 //void GaussianFilter(float thresh);		// 가우시안 필터
 void DBS();					// Direct Binary Search 연산
 void GaussianFilter();		// 가우시안 필터 생성
-double GaussianRandom();		// 정규분포 난수 생성
+double GaussianRandom(double stddev, double average);		// 정규분포 난수 생성
 void CONV();	// 2차원 컨볼루션 연산
 void XCORR();	// 상호상관관계 연산
 void Halftone();				// 초기 하프톤 이미지 생성
@@ -50,7 +50,7 @@ void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 int main(void)
 {
 	FILE * fp;
-	fp = fopen("EDIMAGE.bmp", "rb");
+	fp = fopen("newEDIMAGE.bmp", "rb");
 
 	fread(&bfh, sizeof(bfh), 1, fp);
 	fread(&bih, sizeof(bih), 1, fp);
@@ -89,16 +89,16 @@ int main(void)
 
 	total_Time_CPU = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
+	//Dither();
 	// Direct Binary Search 디더링
-	Dither();
-	//DBS();
+	DBS();
 	QueryPerformanceCounter(&tot_endClock);
 
 	total_Time_CPU = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
 	printf("Total processing Time_DBS : %f ms\n", total_Time_CPU * 1000);
 	//system("pause");
 
-	sprintf(str, "DBS_Dither.bmp");
+	sprintf(str, "new_DBS_Dither.bmp");
 	FwriteCPU(str);
 
 	free(rgb);
@@ -128,7 +128,9 @@ void DBS()
 	Halftone();				// 초기 하프톤이미지 생성
 
 	GaussianFilter();		// 가우시안 필터 생성
+
 	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
+
 	for (int y = 1; y < bph - 1; y++)
 	{
 		for (int x = 1; x < bpl - 1; x++)
@@ -137,6 +139,7 @@ void DBS()
 			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255;
 		}
 	}
+
 	XCORR();	// 상호관계연산 행렬 생성 (CEP)
 
 	// DBS 과정 시작..
@@ -366,8 +369,9 @@ void GaussianFilter(float thresh)
 }
 */
 // 
-double GaussianRandom()
+double GaussianRandom(double stddev, double average)
 {
+	/*
 	double v1, v2, s;
 
 	do {
@@ -379,11 +383,28 @@ double GaussianRandom()
 	s = sqrt((-2 * log(s)) / s);
 
 	return v1 * s;
+	*/
+	double v1, v2, s, temp;
+
+	do {
+		v1 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
+		v2 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
+		s = v1 * v1 + v2 * v2;
+	} while (s >= 1 || s == 0);
+
+	s = sqrt((-2 * log(s)) / s);
+
+	temp = v1 * s;
+	temp = (stddev * temp) + average;
+
+
+	return temp;
+
 }
 void Halftone()
 {
-	
 	// Thresh Hold
+	
 	for (int y = 1; y < bph - 1; y++)
 	{
 		for (int x = 1; x < bpl - 1; x++)
@@ -392,6 +413,7 @@ void Halftone()
 		}
 	}
 	
+
 	// 정규분포 난수로 하프톤이미지 생성
 	/*
 	srand(time(NULL));
@@ -401,7 +423,7 @@ void Halftone()
 	{
 		for (int x = 1; x < bpl - 1; x++)
 		{
-			tmp = GaussianRandom();
+			tmp = GaussianRandom(1.0, 0);
 			//printf("%lf\n", tmp);
 			if (tmp > 0.5)
 			{
@@ -414,7 +436,6 @@ void Halftone()
 void Dither()
 {
 	// 양방향
-	/*
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
 	for (int y = 1; y < bph - 1; y++)
@@ -448,7 +469,6 @@ void Dither()
 			}
 		}
 	}
-	*/
 	// 단방향
 	/*
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
