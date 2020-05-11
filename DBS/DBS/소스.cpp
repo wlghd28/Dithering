@@ -50,7 +50,9 @@ void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 int main(void)
 {
 	FILE * fp;
-	fp = fopen("newEDIMAGE.bmp", "rb");
+	//fp = fopen("EDIMAGE.bmp", "rb");
+	//fp = fopen("newEDIMAGE2.bmp", "rb");
+	fp = fopen("test.bmp", "rb");
 
 	fread(&bfh, sizeof(bfh), 1, fp);
 	fread(&bih, sizeof(bih), 1, fp);
@@ -98,7 +100,9 @@ int main(void)
 	printf("Total processing Time_DBS : %f ms\n", total_Time_CPU * 1000);
 	//system("pause");
 
-	sprintf(str, "new_DBS_Dither.bmp");
+	//sprintf(str, "DBS_Dither.bmp");
+	//sprintf(str, "new_DBS_Dither2.bmp");
+	sprintf(str, "test_DBS_Dither.bmp");
 	FwriteCPU(str);
 
 	free(rgb);
@@ -125,18 +129,20 @@ void DBS()
 	int cpx = 0;
 	int cpy = 0;
 
+	//Dither();
 	Halftone();				// 초기 하프톤이미지 생성
 
 	GaussianFilter();		// 가우시안 필터 생성
 
 	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
 
-	for (int y = 1; y < bph - 1; y++)
+	for (int y = 0; y < bph; y++)
 	{
-		for (int x = 1; x < bpl - 1; x++)
+		for (int x = 0; x < bpl; x++)
 		{
 			//printf("%u\n", pix[y * bpl + x]);
-			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255;
+			// err 값에 더해주는 숫자를 조절하여 4% 이하의 농도에서 점이 찍히는게 보임
+			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255 + 0.032388663967611;
 		}
 	}
 
@@ -235,8 +241,8 @@ void DBS()
 							CEP[(i + y + cpy + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += a1c * CPP[y + halfcppsize][x + halfcppsize];
 						}
 					}
-					pix_hvs[i * bpl + j] += (unsigned char)(a0c) * 255;
-					pix_hvs[(cpy + i) * bpl + (j + cpx)] += (unsigned char)(a1c) * 255;
+					pix_hvs[i * bpl + j] += (a0c) * 255;
+					pix_hvs[(cpy + i) * bpl + (j + cpx)] += (a1c) * 255;
 					count++;
 				}
 			}
@@ -436,6 +442,7 @@ void Halftone()
 void Dither()
 {
 	// 양방향
+	/*
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
 	for (int y = 1; y < bph - 1; y++)
@@ -469,8 +476,9 @@ void Dither()
 			}
 		}
 	}
+	*/
 	// 단방향
-	/*
+	
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
 	for (int y = 1; y < bph - 1; y++)
@@ -487,7 +495,7 @@ void Dither()
 			pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
 		}
 	}
-	*/
+	
 }
 void FwriteCPU(char * fn)
 {
