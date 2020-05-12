@@ -50,9 +50,10 @@ void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 int main(void)
 {
 	FILE * fp;
-	fp = fopen("EDIMAGE.bmp", "rb");
-	//fp = fopen("newEDIMAGE2.bmp", "rb");
+	//fp = fopen("EDIMAGE.bmp", "rb");
+	fp = fopen("newEDIMAGE2.bmp", "rb");
 	//fp = fopen("test.bmp", "rb");
+	//fp = fopen("bird_Y.bmp", "rb");
 
 	fread(&bfh, sizeof(bfh), 1, fp);
 	fread(&bih, sizeof(bih), 1, fp);
@@ -100,9 +101,10 @@ int main(void)
 	printf("Total processing Time_DBS : %f ms\n", total_Time_CPU * 1000);
 	//system("pause");
 
-	sprintf(str, "DBS_Dither.bmp");
-	//sprintf(str, "new_DBS_Dither2.bmp");
+	//sprintf(str, "DBS_Dither.bmp");
+	sprintf(str, "new_DBS_Dither2.bmp");
 	//sprintf(str, "test_DBS_Dither.bmp");
+	//sprintf(str, "bird_DBS_Dither_Y.bmp");
 
 	FwriteCPU(str);
 
@@ -142,7 +144,7 @@ void DBS()
 		for (int x = 0; x < bpl; x++)
 		{
 			// err 값에 더해주는 숫자를 조절하여 4% 이하의 농도에서 점이 찍히는게 보임
-			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255 /*+ (0.03238 * pix_hvs[y * bpl + x] / 255)*/;
+			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255;
 			//printf("%lf\n", err[y * bpl + x]);
 		}
 	}
@@ -252,7 +254,7 @@ void DBS()
 // 가우시안 필터 생성
 void GaussianFilter()
 {
-	int d = 1;
+	double d = 1.5;
 	int gaulen = (fs - 1) / 2;
 	double c;
 	for (int k = (-1) * gaulen; k <= gaulen; k++)
@@ -260,7 +262,7 @@ void GaussianFilter()
 		for (int l = (-1) * gaulen; l <= gaulen; l++)
 		{
 			c = (k * k + l * l) / (2 * d * d);
-			G[k + gaulen][l + gaulen] = exp((-1) * c) / (2 * pi * d * d);
+			G[k + gaulen][l + gaulen] = (double)exp((-1) * c) / (2 * pi * d * d);
 		}
 	}
 }
