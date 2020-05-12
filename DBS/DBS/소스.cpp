@@ -144,7 +144,7 @@ void DBS()
 		for (int x = 0; x < bpl; x++)
 		{
 			// err 값에 더해주는 숫자를 조절하여 4% 이하의 농도에서 점이 찍히는게 보임
-			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255;
+			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255 /*+ (0.032 * pix_hvs[y * bpl + x] / 255)*/;
 			//printf("%lf\n", err[y * bpl + x]);
 		}
 	}
