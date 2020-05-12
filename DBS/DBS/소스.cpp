@@ -50,9 +50,9 @@ void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 int main(void)
 {
 	FILE * fp;
-	//fp = fopen("EDIMAGE.bmp", "rb");
+	fp = fopen("EDIMAGE.bmp", "rb");
 	//fp = fopen("newEDIMAGE2.bmp", "rb");
-	fp = fopen("test.bmp", "rb");
+	//fp = fopen("test.bmp", "rb");
 
 	fread(&bfh, sizeof(bfh), 1, fp);
 	fread(&bih, sizeof(bih), 1, fp);
@@ -73,7 +73,6 @@ int main(void)
 	memset(pix_ms, 0, sizeof(unsigned char) * bpl * bph);
 	memcpy(pix_ms, pix, sizeof(unsigned char) * bpl * bph);
 	*/
-
 	pix_hvs = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
 	memset(pix_hvs, 0, sizeof(unsigned char) * bpl * bph);
 	memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
@@ -93,6 +92,7 @@ int main(void)
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	//Dither();
 	// Direct Binary Search 디더링
+	//Halftone();
 	DBS();
 	QueryPerformanceCounter(&tot_endClock);
 
@@ -100,9 +100,10 @@ int main(void)
 	printf("Total processing Time_DBS : %f ms\n", total_Time_CPU * 1000);
 	//system("pause");
 
-	//sprintf(str, "DBS_Dither.bmp");
+	sprintf(str, "DBS_Dither.bmp");
 	//sprintf(str, "new_DBS_Dither2.bmp");
-	sprintf(str, "test_DBS_Dither.bmp");
+	//sprintf(str, "test_DBS_Dither.bmp");
+
 	FwriteCPU(str);
 
 	free(rgb);
@@ -120,8 +121,8 @@ int main(void)
 void DBS()
 {
 	int count = 0;			// 최소제곱오차 값이 0이 아닐때까지 반복문을 돌리기위한 카운트 변수
-	double eps = 0;
-	double eps_min = 0;
+	double eps = 0.0;
+	double eps_min = 0.0;
 	int a0 = 0;
 	int a1 = 0;
 	int a0c = 0;
@@ -135,17 +136,17 @@ void DBS()
 	GaussianFilter();		// 가우시안 필터 생성
 
 	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
-
+	
 	for (int y = 0; y < bph; y++)
 	{
 		for (int x = 0; x < bpl; x++)
 		{
-			//printf("%u\n", pix[y * bpl + x]);
 			// err 값에 더해주는 숫자를 조절하여 4% 이하의 농도에서 점이 찍히는게 보임
-			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255 + 0.032388663967611;
+			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255 /*+ (0.03238 * pix_hvs[y * bpl + x] / 255)*/;
+			//printf("%lf\n", err[y * bpl + x]);
 		}
 	}
-
+	
 	XCORR();	// 상호관계연산 행렬 생성 (CEP)
 
 	// DBS 과정 시작..
@@ -159,9 +160,9 @@ void DBS()
 		cpx = 0;
 		cpy = 0;
 
-		for (int i = 0; i < bph; i++)
+		for (int i = 1; i < bph - 1; i++)
 		{
-			for (int j = 0; j < bpl; j++)
+			for (int j = 1; j < bpl - 1; j++)
 			{
 				a0c = 0;
 				a1c = 0;
@@ -170,13 +171,12 @@ void DBS()
 				eps_min = 0;
 				for (int y = -1; y <= 1; y++)
 				{
-					if (i + y < 0 || i + y >= bph)
-						continue;
-					
+					//if (i + y < 0 || i + y >= bph)
+						//continue;			
 					for (int x = -1; x <= 1; x++)
 					{
-						if (j + x < 0 || j + x >= bpl)
-							continue;
+						//if (j + x < 0 || j + x >= bpl)
+							//continue;
 						if (y == 0 && x == 0)
 						{
 							if (pix_hvs[i * bpl + j] == 255)
@@ -225,28 +225,25 @@ void DBS()
 						}
 					}
 				}
-				if (eps_min < 0)
-				{
+				if (eps_min < 0.0)
+				{				
 					for (int y = (-1) * halfcppsize; y <= halfcppsize; y++)
 					{
 						for (int x = (-1) * halfcppsize; x <= halfcppsize; x++)
 						{
-							CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)] += a0c * CPP[y + halfcppsize][x + halfcppsize];
+							CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)] += (double)a0c * CPP[y + halfcppsize][x + halfcppsize];
+							CEP[(i + y + cpy + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += (double)a1c * CPP[y + halfcppsize][x + halfcppsize];
 						}
 					}
-					for (int y = (-1) * halfcppsize; y <= halfcppsize; y++)
-					{
-						for (int x = (-1) * halfcppsize; x <= halfcppsize; x++)
-						{
-							CEP[(i + y + cpy + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += a1c * CPP[y + halfcppsize][x + halfcppsize];
-						}
-					}
-					pix_hvs[i * bpl + j] += (a0c) * 255;
-					pix_hvs[(cpy + i) * bpl + (j + cpx)] += (a1c) * 255;
+					//pix_hvs[i * bpl + j] = (unsigned char)((pix_hvs[i * bpl + j] / 255 + a0c) % 2) * 255;
+					//pix_hvs[(cpy + i) * bpl + (j + cpx)] = (unsigned char)((pix_hvs[(cpy + i) * bpl + (j + cpx)] / 255 + a1c) % 2) * 255;
+					pix_hvs[i * bpl + j] += a0c * 255;
+					pix_hvs[(cpy + i) * bpl + (j + cpx)] += a1c * 255;
 					count++;
-				}
+				}	
 			}
 		}
+
 		printf("%d\n", count);
 		if (count == 0)
 			break;
@@ -263,7 +260,7 @@ void GaussianFilter()
 		for (int l = (-1) * gaulen; l <= gaulen; l++)
 		{
 			c = (k * k + l * l) / (2 * d * d);
-			G[k + gaulen + 1][l + gaulen + 1] = exp((-1) * c) / (2 * pi * d * d);
+			G[k + gaulen][l + gaulen] = exp((-1) * c) / (2 * pi * d * d);
 		}
 	}
 }
@@ -418,7 +415,7 @@ void Halftone()
 			pix_hvs[y * bpl + x] = pix[y * bpl + x] / 128 * 255;
 		}
 	}
-	
+
 
 	// 정규분포 난수로 하프톤이미지 생성
 	/*
@@ -429,7 +426,7 @@ void Halftone()
 	{
 		for (int x = 1; x < bpl - 1; x++)
 		{
-			tmp = GaussianRandom(1.0, 0);
+			tmp = (double)GaussianRandom(1.0, 0);
 			//printf("%lf\n", tmp);
 			if (tmp > 0.5)
 			{
@@ -442,7 +439,7 @@ void Halftone()
 void Dither()
 {
 	// 양방향
-	/*
+	
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
 	for (int y = 1; y < bph - 1; y++)
@@ -476,15 +473,16 @@ void Dither()
 			}
 		}
 	}
-	*/
-	// 단방향
 	
+	// 단방향
+	/*
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
 	for (int y = 1; y < bph - 1; y++)
 	{
 		for (int x = 1; x < bpl - 1; x++)
 		{
+
 			pixE[y * bpl + x] += pix_hvs[y * bpl + x];
 			pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
 			quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
@@ -493,9 +491,10 @@ void Dither()
 			pixE[(y + 1) * bpl + x - 1] += quant_error * 3 / 16;
 			pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
 			pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
+
 		}
 	}
-	
+	*/
 }
 void FwriteCPU(char * fn)
 {
