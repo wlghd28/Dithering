@@ -57,8 +57,8 @@ int main(void)
 {
 	FILE * fp;
 	//fp = fopen("EDIMAGE.bmp", "rb");
-	fp = fopen("newEDIMAGE2.bmp", "rb");
-	//fp = fopen("test.bmp", "rb");
+	//fp = fopen("newEDIMAGE2.bmp", "rb");
+	fp = fopen("test.bmp", "rb");
 	//fp = fopen("bird_K.bmp", "rb");
 
 	fread(&bfh, sizeof(bfh), 1, fp);
@@ -108,8 +108,8 @@ int main(void)
 	//system("pause");
 
 	//sprintf(str, "DBS_Dither.bmp");
-	sprintf(str, "new_DBS_Dither2.bmp");
-	//sprintf(str, "test_DBS_Dither.bmp");
+	//sprintf(str, "new_DBS_Dither2.bmp");	
+	sprintf(str, "test_DBS_Dither.bmp");
 	//sprintf(str, "bird_DBS_Dither_K.bmp");
 
 	FwriteCPU(str);
@@ -268,7 +268,7 @@ void DBS()
 // 가우시안 필터 생성
 void GaussianFilter()
 {
-	double sum = 0;
+	//double sum = 0;
 	double d = 1;		// sigma
 	double c;
 	int gaulen = (fs - 1) / 2;
@@ -277,16 +277,17 @@ void GaussianFilter()
 	{
 		for (int l = (-1) * gaulen; l <= gaulen; l++)
 		{
-			/*
+			
 			c = (k * k + l * l) / (2 * d * d);
 			G[k + gaulen][l + gaulen] = exp((-1) * c) / (2 * pi * d * d);
-			sum += G[k + gaulen][l + gaulen];
-			*/
-
-			// fs = 11 일때 결과가 가장 좋았음..		
-			c = (k * k + l * l) / (2 * d * d) + 0.509;
-			G[k + gaulen][l + gaulen] = 1 / c;
+			//sum += G[k + gaulen][l + gaulen];
 			
+
+			// fs = 11 일때 결과가 가장 좋았음..	
+			/*
+			c = (k * k + l * l) / (2 * d * d) + 1;
+			G[k + gaulen][l + gaulen] = 1 / c;
+			*/
 		}
 	}
 	//printf("%lf\n", sum);
@@ -453,7 +454,7 @@ void Halftone()
 	{
 		for (int x = 1; x < bpl - 1; x++)
 		{
-			tmp = (double)GaussianRandom(1.0, 0);
+			tmp = (double)GaussianRandom(2.5, 0);
 			//printf("%lf\n", tmp);
 			if (tmp > 0)
 			{
