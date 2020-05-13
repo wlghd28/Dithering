@@ -29,10 +29,16 @@ double* err;
 int * pixE;
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
+/*
 double G[7][7];
 int fs = 7;	// 가우시안 필터 사이즈
 double CPP[13][13];
 int halfcppsize = 6;
+*/
+double G[11][11];
+int fs = 11;	// 가우시안 필터 사이즈
+double CPP[21][21];
+int halfcppsize = 10;
 double* CEP;
 
 char str[100];				// 파일명을 담을 문자열
@@ -53,7 +59,7 @@ int main(void)
 	//fp = fopen("EDIMAGE.bmp", "rb");
 	fp = fopen("newEDIMAGE2.bmp", "rb");
 	//fp = fopen("test.bmp", "rb");
-	//fp = fopen("bird_Y.bmp", "rb");
+	//fp = fopen("bird_K.bmp", "rb");
 
 	fread(&bfh, sizeof(bfh), 1, fp);
 	fread(&bih, sizeof(bih), 1, fp);
@@ -104,7 +110,7 @@ int main(void)
 	//sprintf(str, "DBS_Dither.bmp");
 	sprintf(str, "new_DBS_Dither2.bmp");
 	//sprintf(str, "test_DBS_Dither.bmp");
-	//sprintf(str, "bird_DBS_Dither_Y.bmp");
+	//sprintf(str, "bird_DBS_Dither_K.bmp");
 
 	FwriteCPU(str);
 
@@ -132,20 +138,28 @@ void DBS()
 	int cpx = 0;
 	int cpy = 0;
 
+
 	//Dither();
 	Halftone();				// 초기 하프톤이미지 생성
 
 	GaussianFilter();		// 가우시안 필터 생성
-
+	/*
+	for (int i = 0; i < fs; i++)
+	{
+		for (int j = 0; j < fs; j++)
+		{
+			printf("%lf ", G[i][j]);
+		}
+		printf("\n");
+	}
+	*/
 	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
 	
 	for (int y = 0; y < bph; y++)
 	{
 		for (int x = 0; x < bpl; x++)
 		{
-			// err 값에 더해주는 숫자를 조절하여 4% 이하의 농도에서 점이 찍히는게 보임
-			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255 /*+ (0.032 * pix_hvs[y * bpl + x] / 255)*/;
-			//printf("%lf\n", err[y * bpl + x]);
+			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255;
 		}
 	}
 	
@@ -254,17 +268,28 @@ void DBS()
 // 가우시안 필터 생성
 void GaussianFilter()
 {
-	double d = 1.5;
-	int gaulen = (fs - 1) / 2;
+	double sum = 0;
+	double d = 1;		// sigma
 	double c;
+	int gaulen = (fs - 1) / 2;
+
 	for (int k = (-1) * gaulen; k <= gaulen; k++)
 	{
 		for (int l = (-1) * gaulen; l <= gaulen; l++)
 		{
+			/*
 			c = (k * k + l * l) / (2 * d * d);
-			G[k + gaulen][l + gaulen] = (double)exp((-1) * c) / (2 * pi * d * d);
+			G[k + gaulen][l + gaulen] = exp((-1) * c) / (2 * pi * d * d);
+			sum += G[k + gaulen][l + gaulen];
+			*/
+
+			// fs = 11 일때 결과가 가장 좋았음..		
+			c = (k * k + l * l) / (2 * d * d) + 0.509;
+			G[k + gaulen][l + gaulen] = 1 / c;
+			
 		}
 	}
+	//printf("%lf\n", sum);
 }
 // 2차원 컨볼루션 연산
 void CONV()
@@ -417,7 +442,7 @@ void Halftone()
 			pix_hvs[y * bpl + x] = pix[y * bpl + x] / 128 * 255;
 		}
 	}
-
+	
 
 	// 정규분포 난수로 하프톤이미지 생성
 	/*
@@ -430,7 +455,7 @@ void Halftone()
 		{
 			tmp = (double)GaussianRandom(1.0, 0);
 			//printf("%lf\n", tmp);
-			if (tmp > 0.5)
+			if (tmp > 0)
 			{
 				pix_hvs[y * bpl + x] = 255;
 			}
