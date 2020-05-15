@@ -40,8 +40,8 @@ int T[8][8] =
 	42, 26, 38, 22, 41, 25, 37, 21
 };
 */
-int T[512][512];
-int ts = 512;	// threshold array size
+double T[2048][2048];
+double ts = 2048;	// threshold array size
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
 double G[9][9];
@@ -65,7 +65,7 @@ void GaussianFilter();		// 가우시안 필터 생성
 double GaussianRandom(double stddev, double average);		// 정규분포 난수 생성
 void CONV();	// 2차원 컨볼루션 연산
 void XCORR();	// 상호상관관계 연산
-void BayerMatrix(int n);		// 정렬 디더링 할 때 쓸 임계값 행렬 생성.
+void BayerMatrix(double n);		// 정렬 디더링 할 때 쓸 임계값 행렬 생성.
 
 void Halftone();				// 초기 하프톤 이미지 생성
 void Dither();				// 디더링 작업
@@ -75,8 +75,8 @@ int main(void)
 {
 	FILE * fp;
 	//fp = fopen("EDIMAGE.bmp", "rb");
-	//fp = fopen("newEDIMAGE2.bmp", "rb");
-	fp = fopen("test.bmp", "rb");
+	fp = fopen("newEDIMAGE2.bmp", "rb");
+	//fp = fopen("test.bmp", "rb");
 	//fp = fopen("bird_K.bmp", "rb");
 
 	fread(&bfh, sizeof(bfh), 1, fp);
@@ -126,8 +126,8 @@ int main(void)
 	//system("pause");
 
 	//sprintf(str, "DBS_Dither.bmp");
-	//sprintf(str, "new_DBS_Dither2.bmp");	
-	sprintf(str, "test_DBS_Dither.bmp");
+	sprintf(str, "new_DBS_Dither2.bmp");
+	//sprintf(str, "test_DBS_Dither.bmp");
 	//sprintf(str, "bird_DBS_Dither_K.bmp");
 
 	FwriteCPU(str);
@@ -140,7 +140,7 @@ int main(void)
 	free(CEP);
 	free(pixE);
 	fclose(fp);
-	
+
 	return 0;
 }
 
@@ -173,7 +173,7 @@ void DBS()
 	}
 	*/
 	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
-	
+
 	for (int y = 0; y < bph; y++)
 	{
 		for (int x = 0; x < bpl; x++)
@@ -181,11 +181,11 @@ void DBS()
 			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255;
 		}
 	}
-	
+
 	XCORR();	// 상호관계연산 행렬 생성 (CEP)
 
 	// DBS 과정 시작..
-	while(1)
+	while (1)
 	{
 		count = 0;
 		a0 = 0;
@@ -261,7 +261,7 @@ void DBS()
 					}
 				}
 				if (eps_min < 0.0)
-				{				
+				{
 					for (int y = (-1) * halfcppsize; y <= halfcppsize; y++)
 					{
 						for (int x = (-1) * halfcppsize; x <= halfcppsize; x++)
@@ -275,7 +275,7 @@ void DBS()
 					pix_hvs[i * bpl + j] += (unsigned char)a0c * 255;
 					pix_hvs[(cpy + i) * bpl + (j + cpx)] += (unsigned char)a1c * 255;
 					count++;
-				}	
+				}
 			}
 		}
 
@@ -297,18 +297,18 @@ void GaussianFilter()
 		for (int l = (-1) * gaulen; l <= gaulen; l++)
 		{
 			// 기존 가우시안 분포 공식
-			
+
 			c = (k * k + l * l) / (2 * d * d);
 			G[k + gaulen][l + gaulen] = exp((-1) * c) / (2 * pi * d * d);
 			//sum += G[k + gaulen][l + gaulen];		
-			
+
 
 			// fs = 11 일때 결과가 가장 좋았음..
 			/*
 			c = (k * k + l * l) / (2 * d * d) + 1;
 			G[k + gaulen][l + gaulen] = 1 / c;
 			sum += G[k + gaulen][l + gaulen];
-			*/	
+			*/
 		}
 	}
 	printf("%lf\n", sum);
@@ -359,14 +359,14 @@ void XCORR()
 		}
 	}
 }
-void BayerMatrix(int n)
+void BayerMatrix(double n)
 {
 	int count = 2;
 	// 임계값 행렬 초기값 설정
-	T[0][0] = 0;
-	T[0][1] = 2;
-	T[1][0] = 3;
-	T[1][1] = 1;
+	T[0][0] = 0.0;
+	T[0][1] = 2.0;
+	T[1][0] = 3.0;
+	T[1][1] = 1.0;
 
 	while (count < n)
 	{
@@ -387,9 +387,10 @@ void BayerMatrix(int n)
 	{
 		for (int j = 0; j < n; j++)
 		{
-			printf("%d ", T[i][j]);
+			T[i][j] *= (1 / (n * n));
+			//printf("%lf ", T[i][j]);
 		}
-		printf("\n");
+		//printf("\n");
 	}
 }
 /*
@@ -426,7 +427,7 @@ void GaussianFilter(float thresh)
 			}
 		}
 	}
-	
+
 	// 3 X 3 마스크
 	float a = 0 / g;
 	float b = 1 / g;
@@ -519,11 +520,23 @@ void Halftone()
 
 	// Ordered Dither
 	BayerMatrix(ts);
+
+	for (int y = 1; y < bph - 1; y++)
+	{
+		for (int x = 1; x < bpl - 1; x++)
+		{
+			if (pix[y * bpl + x] > T[y][x] * 255)
+			{
+				pix_hvs[y * bpl + x] = 255;
+			}
+		}
+	}
+
 }
 void Dither()
 {
 	// 양방향
-	
+
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
 	for (int y = 1; y < bph - 1; y++)
@@ -557,7 +570,7 @@ void Dither()
 			}
 		}
 	}
-	
+
 	// 단방향
 	/*
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
