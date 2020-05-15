@@ -29,18 +29,19 @@ double* err;
 int * pixE;
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
-/*
+
 double G[7][7];
 int fs = 7;	// 가우시안 필터 사이즈
 double CPP[13][13];
 int halfcppsize = 6;
-*/
+
+/*
 double G[11][11];
 int fs = 11;	// 가우시안 필터 사이즈
 double CPP[21][21];
 int halfcppsize = 10;
 double* CEP;
-
+*/
 char str[100];				// 파일명을 담을 문자열
 
 //void GaussianFilter(float thresh);		// 가우시안 필터
@@ -269,7 +270,7 @@ void DBS()
 void GaussianFilter()
 {
 	//double sum = 0;
-	double d = 1;		// sigma
+	double d = (fs - 1) / 6;		// sigma
 	double c;
 	int gaulen = (fs - 1) / 2;
 
