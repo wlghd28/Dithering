@@ -25,6 +25,7 @@ int bpl, bph;
 unsigned char* pix; // 원본 이미지
 //unsigned char* pix_ms; // 가우시안 필터링을 한 이미지
 unsigned char* pix_hvs; // 하프톤 이미지
+unsigned char* pix_check; // 값이 결정된 픽셀인지 아닌지 판단
 double* err;
 int * pixE;
 /*
@@ -102,6 +103,9 @@ int main(void)
 	memset(pix_hvs, 0, sizeof(unsigned char) * bpl * bph);
 	//memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
 
+	pix_check = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
+	memset(pix_check, 0, sizeof(unsigned char) * bpl * bph);
+
 	err = (double *)malloc(sizeof(double) * bpl * bph);
 	memset(err, 0, sizeof(double) * bpl * bph);
 
@@ -117,8 +121,8 @@ int main(void)
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	//Dither();
 	// Direct Binary Search 디더링
-	Halftone();
-	//DBS();
+	//Halftone();
+	DBS();
 	QueryPerformanceCounter(&tot_endClock);
 
 	total_Time_CPU = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
@@ -136,6 +140,7 @@ int main(void)
 	free(pix);
 	//free(pix_ms);
 	free(pix_hvs);
+	free(pix_check);
 	free(err);
 	free(CEP);
 	free(pixE);
@@ -199,86 +204,88 @@ void DBS()
 		{
 			for (int j = 1; j < bpl - 1; j++)
 			{
-				a0c = 0;
-				a1c = 0;
-				cpx = 0;
-				cpy = 0;
-				eps_min = 0;
-				for (int y = -1; y <= 1; y++)
+				if (pix_check[i * bpl + j] == 0)
 				{
-					//if (i + y < 0 || i + y >= bph)
-						//continue;			
-					for (int x = -1; x <= 1; x++)
+					a0c = 0;
+					a1c = 0;
+					cpx = 0;
+					cpy = 0;
+					eps_min = 0;
+					for (int y = -1; y <= 1; y++)
 					{
-						//if (j + x < 0 || j + x >= bpl)
-							//continue;
-						if (y == 0 && x == 0)
+						//if (i + y < 0 || i + y >= bph)
+							//continue;			
+						for (int x = -1; x <= 1; x++)
 						{
-							if (pix_hvs[i * bpl + j] == 255)
-							{
-								a0 = -1;
-								a1 = 0;
-							}
-							else
-							{
-								a0 = 1;
-								a1 = 0;
-							}
-						}
-						else
-						{
-							if (pix_hvs[(i + y) * bpl + (j + x)] != pix_hvs[i * bpl + j])
+							//if (j + x < 0 || j + x >= bpl)
+								//continue;
+							if (y == 0 && x == 0)
 							{
 								if (pix_hvs[i * bpl + j] == 255)
 								{
 									a0 = -1;
-									a1 = (-1) * a0;
+									a1 = 0;
 								}
 								else
 								{
 									a0 = 1;
-									a1 = (-1) * a0;
+									a1 = 0;
 								}
 							}
 							else
 							{
-								a0 = 0;
-								a1 = 0;
+								if (pix_hvs[(i + y) * bpl + (j + x)] != pix_hvs[i * bpl + j])
+								{
+									if (pix_hvs[i * bpl + j] == 255)
+									{
+										a0 = -1;
+										a1 = (-1) * a0;
+									}
+									else
+									{
+										a0 = 1;
+										a1 = (-1) * a0;
+									}
+								}
+								else
+								{
+									a0 = 0;
+									a1 = 0;
+								}
+							}
+							eps = (a0 * a0 + a1 * a1) * CPP[halfcppsize][halfcppsize]
+								+ 2 * a0 * a1 * CPP[halfcppsize + y][halfcppsize + x]
+								+ 2 * a0 * CEP[(i + halfcppsize) * (bpl + halfcppsize * 2) + (j + halfcppsize)]
+								+ 2 * a1 * CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)];
+							if (eps_min > eps)
+							{
+								eps_min = eps;
+								a0c = a0;
+								a1c = a1;
+								cpx = x;
+								cpy = y;
 							}
 						}
-						eps = (a0 * a0 + a1 * a1) * CPP[halfcppsize][halfcppsize]
-							+ 2 * a0 * a1 * CPP[halfcppsize + y][halfcppsize + x]
-							+ 2 * a0 * CEP[(i + halfcppsize) * (bpl + halfcppsize * 2) + (j + halfcppsize)]
-							+ 2 * a1 * CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)];
-						if (eps_min > eps)
-						{
-							eps_min = eps;
-							a0c = a0;
-							a1c = a1;
-							cpx = x;
-							cpy = y;
-						}
 					}
-				}
-				if (eps_min < 0.0)
-				{
-					for (int y = (-1) * halfcppsize; y <= halfcppsize; y++)
+					if (eps_min < 0.0)
 					{
-						for (int x = (-1) * halfcppsize; x <= halfcppsize; x++)
+						for (int y = (-1) * halfcppsize; y <= halfcppsize; y++)
 						{
-							CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)] += (double)a0c * CPP[y + halfcppsize][x + halfcppsize];
-							CEP[(i + y + cpy + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += (double)a1c * CPP[y + halfcppsize][x + halfcppsize];
+							for (int x = (-1) * halfcppsize; x <= halfcppsize; x++)
+							{
+								CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)] += (double)a0c * CPP[y + halfcppsize][x + halfcppsize];
+								CEP[(i + y + cpy + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += (double)a1c * CPP[y + halfcppsize][x + halfcppsize];
+							}
 						}
+						//pix_hvs[i * bpl + j] = (unsigned char)((pix_hvs[i * bpl + j] / 255 + a0c) % 2) * 255;
+						//pix_hvs[(cpy + i) * bpl + (j + cpx)] = (unsigned char)((pix_hvs[(cpy + i) * bpl + (j + cpx)] / 255 + a1c) % 2) * 255;
+						pix_hvs[i * bpl + j] += (unsigned char)a0c * 255;
+						pix_hvs[(cpy + i) * bpl + (j + cpx)] += (unsigned char)a1c * 255;
+						count++;
 					}
-					//pix_hvs[i * bpl + j] = (unsigned char)((pix_hvs[i * bpl + j] / 255 + a0c) % 2) * 255;
-					//pix_hvs[(cpy + i) * bpl + (j + cpx)] = (unsigned char)((pix_hvs[(cpy + i) * bpl + (j + cpx)] / 255 + a1c) % 2) * 255;
-					pix_hvs[i * bpl + j] += (unsigned char)a0c * 255;
-					pix_hvs[(cpy + i) * bpl + (j + cpx)] += (unsigned char)a1c * 255;
-					count++;
 				}
 			}
 		}
-
 		printf("%d\n", count);
 		if (count == 0)
 			break;
@@ -528,6 +535,7 @@ void Halftone()
 			if (pix[y * bpl + x] > T[y][x] * 255)
 			{
 				pix_hvs[y * bpl + x] = 255;
+				pix_check[y * bpl + x] = 1;
 			}
 		}
 	}
