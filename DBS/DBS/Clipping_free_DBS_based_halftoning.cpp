@@ -41,8 +41,8 @@ int T[8][8] =
 	42, 26, 38, 22, 41, 25, 37, 21
 };
 */
-double T[2048][2048];
-double ts = 2048;	// threshold array size
+double T[512][512];
+int ts = 512;	// threshold array size
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
 double G[9][9];
@@ -76,8 +76,8 @@ int main(void)
 {
 	FILE * fp;
 	//fp = fopen("EDIMAGE.bmp", "rb");
-	fp = fopen("newEDIMAGE2.bmp", "rb");
-	//fp = fopen("test.bmp", "rb");
+	//fp = fopen("newEDIMAGE2.bmp", "rb");
+	fp = fopen("test.bmp", "rb");
 	//fp = fopen("bird_K.bmp", "rb");
 
 	fread(&bfh, sizeof(bfh), 1, fp);
@@ -130,8 +130,8 @@ int main(void)
 	//system("pause");
 
 	//sprintf(str, "DBS_Dither.bmp");
-	sprintf(str, "new_DBS_Dither2.bmp");
-	//sprintf(str, "test_DBS_Dither.bmp");
+	//sprintf(str, "new_DBS_Dither2.bmp");
+	sprintf(str, "test_DBS_Dither.bmp");
 	//sprintf(str, "bird_DBS_Dither_K.bmp");
 
 	FwriteCPU(str);
@@ -532,7 +532,7 @@ void Halftone()
 	{
 		for (int x = 1; x < bpl - 1; x++)
 		{
-			if (pix[y * bpl + x] > T[y][x] * 255)
+			if (pix[y * bpl + x] > T[y % ts][x % ts] * 255)
 			{
 				pix_hvs[y * bpl + x] = 255;
 				pix_check[y * bpl + x] = 1;
