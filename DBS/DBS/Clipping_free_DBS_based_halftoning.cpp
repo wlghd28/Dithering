@@ -28,20 +28,9 @@ unsigned char* pix_hvs; // 하프톤 이미지
 unsigned char* pix_check; // 값이 결정된 픽셀인지 아닌지 판단
 double* err;
 int * pixE;
-/*
-int T[8][8] =
-{
-	0, 48, 12, 60, 3, 51, 15, 63,
-	32, 16, 44, 28, 35, 19, 47, 31,
-	8, 56, 4, 52, 11, 59, 7, 55,
-	40, 24, 3, 20, 43, 27, 39, 23,
-	2, 50, 14, 62, 1, 49, 13, 61,
-	34, 18, 46, 30, 33, 17, 45, 29,
-	10, 58, 6, 54, 9, 57, 5, 53,
-	42, 26, 38, 22, 41, 25, 37, 21
-};
-*/
+
 double T[512][512];
+double T2[512][512];
 int ts = 512;	// threshold array size
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
@@ -49,7 +38,6 @@ double G[9][9];
 int fs = 9;	// 가우시안 필터 사이즈
 double CPP[17][17];
 int halfcppsize = 8;
-
 /*
 double G[11][11];
 int fs = 11;	// 가우시안 필터 사이즈
@@ -66,8 +54,9 @@ void GaussianFilter();		// 가우시안 필터 생성
 double GaussianRandom(double stddev, double average);		// 정규분포 난수 생성
 void CONV();	// 2차원 컨볼루션 연산
 void XCORR();	// 상호상관관계 연산
-void BayerMatrix(double n);		// 정렬 디더링 할 때 쓸 임계값 행렬 생성.
-
+void Threshold(int n);
+void BayerMatrix(int n);		// 정렬 디더링 할 때 쓸 임계값 행렬 생성
+double Uniformity();			// 임계값 행렬의 균일성을 구하는 함수
 void Halftone();				// 초기 하프톤 이미지 생성
 void Dither();				// 디더링 작업
 void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
@@ -76,8 +65,8 @@ int main(void)
 {
 	FILE * fp;
 	//fp = fopen("EDIMAGE.bmp", "rb");
-	//fp = fopen("newEDIMAGE2.bmp", "rb");
-	fp = fopen("test.bmp", "rb");
+	fp = fopen("newEDIMAGE2.bmp", "rb");
+	//fp = fopen("test.bmp", "rb");
 	//fp = fopen("bird_K.bmp", "rb");
 
 	fread(&bfh, sizeof(bfh), 1, fp);
@@ -130,8 +119,8 @@ int main(void)
 	//system("pause");
 
 	//sprintf(str, "DBS_Dither.bmp");
-	//sprintf(str, "new_DBS_Dither2.bmp");
-	sprintf(str, "test_DBS_Dither.bmp");
+	sprintf(str, "new_DBS_Dither2.bmp");
+	//sprintf(str, "test_DBS_Dither.bmp");
 	//sprintf(str, "bird_DBS_Dither_K.bmp");
 
 	FwriteCPU(str);
@@ -314,11 +303,11 @@ void GaussianFilter()
 			/*
 			c = (k * k + l * l) / (2 * d * d) + 1;
 			G[k + gaulen][l + gaulen] = 1 / c;
-			sum += G[k + gaulen][l + gaulen];
+			//sum += G[k + gaulen][l + gaulen];
 			*/
 		}
 	}
-	printf("%lf\n", sum);
+	//printf("%lf\n", sum);
 }
 // 2차원 컨볼루션 연산
 void CONV()
@@ -366,7 +355,120 @@ void XCORR()
 		}
 	}
 }
-void BayerMatrix(double n)
+// DBS 기반으로 만들어진 임계값 행렬
+void Threshold(int n)
+{
+	int count = 0;			// 유클리드 최소거리 값이 갱신되는 횟수.
+	double uT = 0;
+	double uT_min = 0;
+	int a0 = 0;
+	int a1 = 0;
+	int a0c = 0;
+	int a1c = 0;
+	int cpx = 0;
+	int cpy = 0;
+
+	// Swapping 과정 시작..
+	while (1)
+	{
+		count = 0;
+		a0 = 0;
+		a1 = 0;
+		a0c = 0;
+		a1c = 0;
+		cpx = 0;
+		cpy = 0;
+
+		for (int i = 0; i < ts; i++)
+		{
+			for (int j = 0; j < ts; j++)
+			{
+				a0c = 0;
+				a1c = 0;
+				cpx = 0;
+				cpy = 0;
+				uT = 0;
+				for (int y = -1; y <= 1; y++)
+				{
+					//if (i + y < 0 || i + y >= bph)
+						//continue;			
+					for (int x = -1; x <= 1; x++)
+					{
+						//if (j + x < 0 || j + x >= bpl)
+							//continue;
+						if (y == 0 && x == 0)
+						{
+
+						}
+						else
+						{
+
+						}
+
+						// 균일성 값
+						uT = Uniformity();
+
+						if (uT_min < uT)
+						{
+							uT_min = uT;
+							count++;
+						}
+					}
+				}
+			}
+		}
+
+		printf("Threshold count : %d\n", count);
+		if (count == 0)
+			break;
+	}
+}
+// 균일성 값 리턴
+double Uniformity()
+{
+	double distance = 0;
+	double sum = 0;
+	double min;
+
+	for (int i = 0; i < ts; i++)
+	{
+		for (int j = 0; j < ts; j++)
+		{
+			min = ts * ts * 2;
+			for (int k = 1; k < ts; k++)
+			{
+				for (int y = -k; y <= k; y++)
+				{
+					if (i + y < 0 || i + y >= ts)
+						continue;
+					for (int x = -k; x <= k; x++)
+					{
+						if (j + x < 0 || j + x >= ts)
+							continue;
+						if (y != 0 && x != 0)
+						{
+							if (T[i + y][j + x] <= T[i][j])
+							{
+								distance = y * y + x * x;
+								if (distance < min)
+								{
+									min = distance;
+								}
+							}
+						}
+					}
+				}
+				// 거리의 최솟값이 결정된 경우 반복문 탈출
+				if (min != ts * ts * 2)
+					break;
+			}
+			sum += min;
+		}
+	}
+
+	return sum;
+}
+void BayerMatrix(int n)
 {
 	int count = 2;
 	// 임계값 행렬 초기값 설정
@@ -496,7 +598,7 @@ double GaussianRandom(double stddev, double average)
 void Halftone()
 {
 	// Thresh Hold
-	/*
+
 	for (int y = 1; y < bph - 1; y++)
 	{
 		for (int x = 1; x < bpl - 1; x++)
@@ -504,7 +606,7 @@ void Halftone()
 			pix_hvs[y * bpl + x] = pix[y * bpl + x] / 128 * 255;
 		}
 	}
-	*/
+
 
 	// 정규분포 난수로 하프톤이미지 생성
 	/*
@@ -526,7 +628,8 @@ void Halftone()
 	*/
 
 	// Ordered Dither
-	BayerMatrix(ts);
+	/*
+	BayerMatrix(ts); // Threshold array 생성
 
 	for (int y = 1; y < bph - 1; y++)
 	{
@@ -539,7 +642,39 @@ void Halftone()
 			}
 		}
 	}
+	*/
 
+	// Ordered Dithering based DBS
+	/*
+	Threshold(ts);
+	int D = 9;
+	for (int y = 1; y < bph - 1; y++)
+	{
+		for (int x = 1; x < bpl - 1; x++)
+		{
+			// shadow
+			if (pix[y * bpl + x] < D)
+			{
+				if (pix[y * bpl + x] > T[y % ts][x % ts] * 255)
+				{
+					pix_hvs[y * bpl + x] = 255;
+					//pix_check[y * bpl + x] = 1;
+				}
+				pix_check[y * bpl + x] = 1;
+			}
+			// highlight
+			else if (pix[y * bpl + x] > 255 - D)
+			{
+				if (pix[y * bpl + x] > T[y % ts][x % ts] * 255)
+				{
+					pix_hvs[y * bpl + x] = 255;
+					//pix_check[y * bpl + x] = 1;
+				}
+				pix_check[y * bpl + x] = 1;
+			}
+		}
+	}
+	*/
 }
 void Dither()
 {
