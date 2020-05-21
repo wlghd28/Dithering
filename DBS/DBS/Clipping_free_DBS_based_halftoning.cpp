@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
-
+#include <malloc.h>
 
 #pragma warning(disable : 4996)
 // 시간을 계산하기 위한 변수
@@ -26,11 +26,11 @@ unsigned char* pix; // 원본 이미지
 //unsigned char* pix_ms; // 가우시안 필터링을 한 이미지
 unsigned char* pix_hvs; // 하프톤 이미지
 unsigned char* pix_check; // 값이 결정된 픽셀인지 아닌지 판단
-double* err;
+//double* err;
 int * pixE;
 
 double T[512][512];
-double T2[512][512];
+//double T2[512][512];
 int ts = 512;	// threshold array size
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
@@ -86,6 +86,7 @@ int main(void)
 	// BPL을 맞춰주기 위해서 픽셀데이터의 사이즈를 4의 배수로 조정
 	bpl = (bih.biWidth + 3) / 4 * 4;
 	bph = (bih.biHeight + 3) / 4 * 4;
+	//printf("%d %d\n", bpl, bph);
 
 	pix = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
 	fread(pix, sizeof(unsigned char), bpl * bph, fp);
@@ -98,16 +99,16 @@ int main(void)
 
 	//pix_check = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
 
-	err = (double *)calloc(bpl * bph, sizeof(double));
+	//err = (double *)calloc(bpl * bph, sizeof(double));
 
 	CEP = (double *)calloc((bpl + halfcppsize * 2) * (bph + halfcppsize * 2), sizeof(double));
 
-	printf("%p %p %p %p\n", err, CEP, pix, pix_hvs);
+	printf("%p %p %p \n", CEP, pix, pix_hvs);
 
 	//pixE = (int *)calloc(bpl * bph, sizeof(int));
 
 	// Memory allocation 예외 처리
-	if (CEP == NULL || err == NULL || pix == NULL || pix_hvs == NULL || rgb == NULL)
+	if (CEP == NULL || pix == NULL || pix_hvs == NULL || rgb == NULL)
 	{
 		printf("Memory allocation fail!\n");
 		return 0;
@@ -119,7 +120,6 @@ int main(void)
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	//Dither();
 	// Direct Binary Search 디더링
-	//Halftone();
 	DBS();
 	QueryPerformanceCounter(&tot_endClock);
 
@@ -128,8 +128,8 @@ int main(void)
 	//system("pause");
 
 	//sprintf(str, "DBS_Dither.bmp");
-	sprintf(str, "new_DBS_Dither2_720.bmp");
-	//sprintf(str, "test_DBS_Dither.bmp");
+	//sprintf(str, "new_DBS_Dither2_720.bmp");	
+	sprintf(str, "test_DBS_Dither.bmp");
 	//sprintf(str, "bird2_DBS_Dither_720_C.bmp");
 
 	FwriteCPU(str);
@@ -139,7 +139,7 @@ int main(void)
 	//free(pix_ms);
 	free(pix_hvs);
 	//free(pix_check);
-	free(err);
+	//free(err);
 	free(CEP);
 	//free(pixE);
 	fclose(fp);
@@ -164,19 +164,9 @@ void DBS()
 	Halftone();				// 초기 하프톤이미지 생성
 
 	GaussianFilter();		// 가우시안 필터 생성
-	/*
-	for (int i = 0; i < fs; i++)
-	{
-		for (int j = 0; j < fs; j++)
-		{
-			//G[i][j] /= 273;
-			printf("%lf ", G[i][j]);
-		}
-		printf("\n");
-	}
-	*/
-	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
 
+	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
+	/*
 	for (int y = 0; y < bph; y++)
 	{
 		for (int x = 0; x < bpl; x++)
@@ -184,7 +174,7 @@ void DBS()
 			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255;
 		}
 	}
-
+	*/
 	XCORR();	// 상호관계연산 행렬 생성 (CEP)
 
 	// DBS 과정 시작..
@@ -355,7 +345,8 @@ void XCORR()
 				{
 					if ((i >= 0 && j >= 0) && (i < bph && j < bpl))
 					{
-						sum += (double)CPP[i - y][j - x] * (double)err[i * bpl + j];
+						// err * CPP
+						sum += (double)CPP[i - y][j - x] * ((double)pix_hvs[i * bpl + j] / 255 - (double)pix[i * bpl + j] / 255);
 					}
 				}
 			}
@@ -505,7 +496,7 @@ void BayerMatrix(int n)
 		for (int j = 0; j < n; j++)
 		{
 			T[i][j] /= n * n;
-			T2[i][j] = 1 - T[i][j];
+			//T2[i][j] = 1 - T[i][j];
 			//printf("%lf ", (double)T[i][j]);
 		}
 		//printf("\n");
