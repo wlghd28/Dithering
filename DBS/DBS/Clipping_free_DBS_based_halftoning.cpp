@@ -34,10 +34,12 @@ double T2[512][512];
 int ts = 512;	// threshold array size
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
+
 double G[9][9];
 int fs = 9;	// 가우시안 필터 사이즈
 double CPP[17][17];
 int halfcppsize = 8;
+
 /*
 double G[11][11];
 int fs = 11;	// 가우시안 필터 사이즈
@@ -65,9 +67,15 @@ int main(void)
 {
 	FILE * fp;
 	//fp = fopen("EDIMAGE.bmp", "rb");
-	fp = fopen("newEDIMAGE2.bmp", "rb");
+	fp = fopen("newEDIMAGE2_720.bmp", "rb");
 	//fp = fopen("test.bmp", "rb");
-	//fp = fopen("bird_K.bmp", "rb");
+	//fp = fopen("bird2_720_C.bmp", "rb");
+
+	if (fp == NULL)
+	{
+		printf("File not found!!\n");
+		return 0;
+	}
 
 	fread(&bfh, sizeof(bfh), 1, fp);
 	fread(&bih, sizeof(bih), 1, fp);
@@ -79,30 +87,31 @@ int main(void)
 	bpl = (bih.biWidth + 3) / 4 * 4;
 	bph = (bih.biHeight + 3) / 4 * 4;
 
-	pix = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
-	memset(pix, 0, sizeof(unsigned char) * bpl * bph);
+	pix = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
 	fread(pix, sizeof(unsigned char), bpl * bph, fp);
 
-	/*
-	pix_ms = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
-	memset(pix_ms, 0, sizeof(unsigned char) * bpl * bph);
-	memcpy(pix_ms, pix, sizeof(unsigned char) * bpl * bph);
-	*/
-	pix_hvs = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
-	memset(pix_hvs, 0, sizeof(unsigned char) * bpl * bph);
+	//pix_ms = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
+	//memcpy(pix_ms, pix, sizeof(unsigned char) * bpl * bph);
+
+	pix_hvs = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
 	//memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
 
-	pix_check = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
-	memset(pix_check, 0, sizeof(unsigned char) * bpl * bph);
+	//pix_check = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
 
-	err = (double *)malloc(sizeof(double) * bpl * bph);
-	memset(err, 0, sizeof(double) * bpl * bph);
+	err = (double *)calloc(bpl * bph, sizeof(double));
 
-	CEP = (double *)malloc(sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
-	memset(CEP, 0, sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
+	CEP = (double *)calloc((bpl + halfcppsize * 2) * (bph + halfcppsize * 2), sizeof(double));
 
-	pixE = (int *)malloc(sizeof(int) * bpl * bph);
-	memset(pixE, 0, sizeof(int) * bpl * bph);
+	printf("%p %p %p %p\n", err, CEP, pix, pix_hvs);
+
+	//pixE = (int *)calloc(bpl * bph, sizeof(int));
+
+	// Memory allocation 예외 처리
+	if (CEP == NULL || err == NULL || pix == NULL || pix_hvs == NULL || rgb == NULL)
+	{
+		printf("Memory allocation fail!\n");
+		return 0;
+	}
 
 	QueryPerformanceFrequency(&tot_clockFreq);	// 시간을 측정하기위한 준비
 
@@ -119,9 +128,9 @@ int main(void)
 	//system("pause");
 
 	//sprintf(str, "DBS_Dither.bmp");
-	sprintf(str, "new_DBS_Dither2.bmp");
+	sprintf(str, "new_DBS_Dither2_720.bmp");
 	//sprintf(str, "test_DBS_Dither.bmp");
-	//sprintf(str, "bird_DBS_Dither_K.bmp");
+	//sprintf(str, "bird2_DBS_Dither_720_C.bmp");
 
 	FwriteCPU(str);
 
@@ -129,10 +138,10 @@ int main(void)
 	free(pix);
 	//free(pix_ms);
 	free(pix_hvs);
-	free(pix_check);
+	//free(pix_check);
 	free(err);
 	free(CEP);
-	free(pixE);
+	//free(pixE);
 	fclose(fp);
 
 	return 0;
@@ -193,7 +202,7 @@ void DBS()
 		{
 			for (int j = 1; j < bpl - 1; j++)
 			{
-				if (pix_check[i * bpl + j] == 0)
+				//if (pix_check[i * bpl + j] == 0)
 				{
 					a0c = 0;
 					a1c = 0;
@@ -292,8 +301,7 @@ void GaussianFilter()
 	{
 		for (int l = (-1) * gaulen; l <= gaulen; l++)
 		{
-			// 기존 가우시안 분포 공식
-
+			// 기존 가우시안 분포 공식	
 			c = (k * k + l * l) / (2 * d * d);
 			G[k + gaulen][l + gaulen] = exp((-1) * c) / (2 * pi * d * d);
 			//sum += G[k + gaulen][l + gaulen];		
@@ -355,7 +363,7 @@ void XCORR()
 		}
 	}
 }
-// DBS 기반으로 만들어진 임계값 행렬
+// DBS 기반으로 만들어진 임계값 행렬 구현중...
 void Threshold(int n)
 {
 	int count = 0;			// 유클리드 최소거리 값이 갱신되는 횟수.
@@ -496,8 +504,9 @@ void BayerMatrix(int n)
 	{
 		for (int j = 0; j < n; j++)
 		{
-			T[i][j] *= (1 / (n * n));
-			//printf("%lf ", T[i][j]);
+			T[i][j] /= n * n;
+			T2[i][j] = 1 - T[i][j];
+			//printf("%lf ", (double)T[i][j]);
 		}
 		//printf("\n");
 	}
@@ -565,19 +574,6 @@ void GaussianFilter(float thresh)
 // 
 double GaussianRandom(double stddev, double average)
 {
-	/*
-	double v1, v2, s;
-
-	do {
-		v1 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
-		v2 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
-		s = v1 * v1 + v2 * v2;
-	} while (s >= 1 || s == 0);
-
-	s = sqrt((-2 * log(s)) / s);
-
-	return v1 * s;
-	*/
 	double v1, v2, s, temp;
 
 	do {
@@ -593,12 +589,11 @@ double GaussianRandom(double stddev, double average)
 
 
 	return temp;
-
 }
 void Halftone()
 {
 	// Thresh Hold
-
+	/*
 	for (int y = 1; y < bph - 1; y++)
 	{
 		for (int x = 1; x < bpl - 1; x++)
@@ -606,10 +601,10 @@ void Halftone()
 			pix_hvs[y * bpl + x] = pix[y * bpl + x] / 128 * 255;
 		}
 	}
-
+	*/
 
 	// 정규분포 난수로 하프톤이미지 생성
-	/*
+
 	srand(time(NULL));
 	double tmp;
 
@@ -617,18 +612,19 @@ void Halftone()
 	{
 		for (int x = 1; x < bpl - 1; x++)
 		{
-			tmp = (double)GaussianRandom(2.5, 0);
+			tmp = (double)GaussianRandom(1.0, 0);
 			//printf("%lf\n", tmp);
-			if (tmp > 0)
+			if (tmp > 0.5)
 			{
 				pix_hvs[y * bpl + x] = 255;
 			}
 		}
 	}
-	*/
 
+}
+void Dither()
+{
 	// Ordered Dither
-	/*
 	BayerMatrix(ts); // Threshold array 생성
 
 	for (int y = 1; y < bph - 1; y++)
@@ -642,11 +638,10 @@ void Halftone()
 			}
 		}
 	}
-	*/
 
 	// Ordered Dithering based DBS
 	/*
-	Threshold(ts);
+	Threshold(ts);	// Threshold array 생성
 	int D = 9;
 	for (int y = 1; y < bph - 1; y++)
 	{
@@ -675,11 +670,9 @@ void Halftone()
 		}
 	}
 	*/
-}
-void Dither()
-{
-	// 양방향
 
+	// Floyd Steinberg 양방향
+	/*
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
 	for (int y = 1; y < bph - 1; y++)
@@ -713,8 +706,8 @@ void Dither()
 			}
 		}
 	}
-
-	// 단방향
+	*/
+	// Floyd Steinberg 단방향
 	/*
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
