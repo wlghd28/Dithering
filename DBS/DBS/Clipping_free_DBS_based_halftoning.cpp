@@ -29,9 +29,9 @@ unsigned char* pix_check; // 값이 결정된 픽셀인지 아닌지 판단
 //double* err;
 int * pixE;
 
-double T[512][512];
-//double T2[512][512];
-int ts = 512;	// threshold array size
+double T[128][128];
+int ts = 128;	// threshold array size
+int D = 7;
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
 
@@ -66,8 +66,8 @@ void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 int main(void)
 {
 	FILE * fp;
-	//fp = fopen("EDIMAGE.bmp", "rb");
-	fp = fopen("newEDIMAGE2_720.bmp", "rb");
+	//fp = fopen("newEDIMAGE.bmp", "rb");
+	fp = fopen("newEDIMAGE2.bmp", "rb");
 	//fp = fopen("test.bmp", "rb");
 	//fp = fopen("bird2_720_C.bmp", "rb");
 
@@ -127,9 +127,9 @@ int main(void)
 	printf("Total processing Time_DBS : %f ms\n", total_Time_CPU * 1000);
 	//system("pause");
 
-	//sprintf(str, "DBS_Dither.bmp");
-	//sprintf(str, "new_DBS_Dither2_720.bmp");	
-	sprintf(str, "test_DBS_Dither.bmp");
+	//sprintf(str, "new_DBS_Dither.bmp");
+	sprintf(str, "new_DBS_Dither2.bmp");
+	//sprintf(str, "test_DBS_Dither.bmp");
 	//sprintf(str, "bird2_DBS_Dither_720_C.bmp");
 
 	FwriteCPU(str);
@@ -292,6 +292,7 @@ void GaussianFilter()
 		for (int l = (-1) * gaulen; l <= gaulen; l++)
 		{
 			// 기존 가우시안 분포 공식	
+
 			c = (k * k + l * l) / (2 * d * d);
 			G[k + gaulen][l + gaulen] = exp((-1) * c) / (2 * pi * d * d);
 			//sum += G[k + gaulen][l + gaulen];		
@@ -357,69 +358,77 @@ void XCORR()
 // DBS 기반으로 만들어진 임계값 행렬 구현중...
 void Threshold(int n)
 {
+	// 초기 임계값 행렬에 0 ~ D 값을 할당
+	for (int i = 0; i < n; i++)
+	{
+		for (int j = 0; j < n; j++)
+		{
+			//T[i][j] = (i * n + j) % 10;
+			T[i][j] = rand() % 10;
+		}
+	}
+
+	// DBS 기반 스와핑을 통해 균일성이 최대가 되도록 알고리즘 적용
 	int count = 0;			// 유클리드 최소거리 값이 갱신되는 횟수.
 	double uT = 0;
-	double uT_min = 0;
-	int a0 = 0;
-	int a1 = 0;
-	int a0c = 0;
-	int a1c = 0;
-	int cpx = 0;
-	int cpy = 0;
-
+	double uT_max = 0;
+	double tmp = 0;
 	// Swapping 과정 시작..
 	while (1)
 	{
 		count = 0;
-		a0 = 0;
-		a1 = 0;
-		a0c = 0;
-		a1c = 0;
-		cpx = 0;
-		cpy = 0;
-
+		uT_max = Uniformity();
+		//uT = Uniformity();
 		for (int i = 0; i < ts; i++)
 		{
 			for (int j = 0; j < ts; j++)
 			{
-				a0c = 0;
-				a1c = 0;
-				cpx = 0;
-				cpy = 0;
-				uT = 0;
+				//printf("%lf\n", uT);
 				for (int y = -1; y <= 1; y++)
 				{
-					//if (i + y < 0 || i + y >= bph)
-						//continue;			
+					if (i + y < 0 || i + y >= ts)
+						continue;
 					for (int x = -1; x <= 1; x++)
 					{
-						//if (j + x < 0 || j + x >= bpl)
-							//continue;
-						if (y == 0 && x == 0)
+						if (j + x < 0 || j + x >= ts)
+							continue;
+						if (!(x == 0 && y == 0))
 						{
-
-						}
-						else
-						{
-
-						}
-
-						// 균일성 값
-						uT = Uniformity();
-
-						if (uT_min < uT)
-						{
-							uT_min = uT;
-							count++;
+							//swapping...
+							tmp = T[i][j];
+							T[i][j] = T[i + y][j + x];
+							T[i + y][j + x] = tmp;
+							uT = Uniformity();
+							if (uT_max < uT)
+							{
+								uT_max = uT;
+								count++;
+							}
+							else
+							{
+								tmp = T[i][j];
+								T[i][j] = T[i + y][j + x];
+								T[i + y][j + x] = tmp;
+							}
 						}
 					}
 				}
 			}
+			//printf("test2\n");
 		}
 
 		printf("Threshold count : %d\n", count);
 		if (count == 0)
 			break;
+	}
+
+	for (int i = 0; i < n; i++)
+	{
+		for (int j = 0; j < n; j++)
+		{
+			printf("%lf ", T[i][j]);
+		}
+		printf("\n");
 	}
 }
 // 균일성 값 리턴
@@ -428,7 +437,6 @@ double Uniformity()
 	double distance = 0;
 	double sum = 0;
 	double min;
-
 	for (int i = 0; i < ts; i++)
 	{
 		for (int j = 0; j < ts; j++)
@@ -496,7 +504,6 @@ void BayerMatrix(int n)
 		for (int j = 0; j < n; j++)
 		{
 			T[i][j] /= n * n;
-			//T2[i][j] = 1 - T[i][j];
 			//printf("%lf ", (double)T[i][j]);
 		}
 		//printf("\n");
@@ -607,6 +614,7 @@ void Halftone()
 			//printf("%lf\n", tmp);
 			if (tmp > 0.5)
 			{
+				//if(pix_check[y * bpl + x] == 0)
 				pix_hvs[y * bpl + x] = 255;
 			}
 		}
@@ -616,6 +624,7 @@ void Halftone()
 void Dither()
 {
 	// Ordered Dither
+	/*
 	BayerMatrix(ts); // Threshold array 생성
 
 	for (int y = 1; y < bph - 1; y++)
@@ -629,38 +638,39 @@ void Dither()
 			}
 		}
 	}
-
+	*/
 	// Ordered Dithering based DBS
-	/*
+
 	Threshold(ts);	// Threshold array 생성
-	int D = 9;
+
 	for (int y = 1; y < bph - 1; y++)
 	{
 		for (int x = 1; x < bpl - 1; x++)
 		{
-			// shadow
 			if (pix[y * bpl + x] < D)
 			{
-				if (pix[y * bpl + x] > T[y % ts][x % ts] * 255)
+				//pix_hvs[y * bpl + x] = pix[y * bpl + x];
+				if (pix[y * bpl + x] > T[y % ts][x % ts])
 				{
 					pix_hvs[y * bpl + x] = 255;
-					//pix_check[y * bpl + x] = 1;
+					pix_check[y * bpl + x] = 1;
 				}
-				pix_check[y * bpl + x] = 1;
+				else
+					pix_check[y * bpl + x] = 1;
 			}
-			// highlight
 			else if (pix[y * bpl + x] > 255 - D)
 			{
-				if (pix[y * bpl + x] > T[y % ts][x % ts] * 255)
+				//pix_hvs[y * bpl + x] = pix[y * bpl + x];
+				if (pix[y * bpl + x] > 255 - T[y % ts][x % ts])
 				{
 					pix_hvs[y * bpl + x] = 255;
-					//pix_check[y * bpl + x] = 1;
 				}
-				pix_check[y * bpl + x] = 1;
+				else
+					pix_check[y * bpl + x] = 1;
 			}
+
 		}
 	}
-	*/
 
 	// Floyd Steinberg 양방향
 	/*
