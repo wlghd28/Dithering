@@ -655,18 +655,19 @@ void Dither()
 					pix_hvs[y * bpl + x] = 255;
 					pix_check[y * bpl + x] = 1;
 				}
-				else
-					pix_check[y * bpl + x] = 1;
 			}
 			else if (pix[y * bpl + x] > 255 - D)
 			{
 				//pix_hvs[y * bpl + x] = pix[y * bpl + x];
-				if (pix[y * bpl + x] > 255 - T[y % ts][x % ts])
+				if (pix[y * bpl + x] < 255 - T[y % ts][x % ts])
+				{
+					pix_hvs[y * bpl + x] = 0;
+					pix_check[y * bpl + x] = 1;
+				}
+				else
 				{
 					pix_hvs[y * bpl + x] = 255;
 				}
-				else
-					pix_check[y * bpl + x] = 1;
 			}
 
 		}
