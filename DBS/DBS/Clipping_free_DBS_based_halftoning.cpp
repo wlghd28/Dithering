@@ -359,30 +359,68 @@ void XCORR()
 void Threshold(int n)
 {
 	// 초기 임계값 행렬에 0 ~ D 값을 할당
+
 	for (int i = 0; i < n; i++)
 	{
 		for (int j = 0; j < n; j++)
 		{
-			//T[i][j] = (i * n + j) % 10;
-			T[i][j] = rand() % 10;
+			//T[i][j] = (i * n + j) % (D + 1);
+			T[i][j] = rand() % (D + 1);
 		}
 	}
 
+
+	//srand(time(NULL));
+	//double random;
+	//int index = 0;
+	/*
+	for (int y = 1; y < bph - 1; y++)
+	{
+		for (int x = 1; x < bpl - 1; x++)
+		{
+			random = (double)GaussianRandom(1, 0);
+			//printf("%lf\n", tmp);
+			//if (random < 0)
+				//random = 0;
+			//else if (random > 1)
+				//random = 1;
+			T[y][x] = random;
+			T[y][x] *= D;
+		}
+	}
+	*/
+	/*
+	while (index <= ts * ts)
+	{
+		random = (double)GaussianRandom(D + 1, 0);
+		//printf("%lf\n", tmp);
+		if (random >= 0 && random <= D)
+		{
+			T[index / ts][index % ts] = random;
+			index++;
+		}
+	}
+	*/
+
 	// DBS 기반 스와핑을 통해 균일성이 최대가 되도록 알고리즘 적용
-	int count = 0;			// 유클리드 최소거리 값이 갱신되는 횟수.
+	//int count = 0;			// 유클리드 최소거리 값이 갱신되는 횟수.
 	double uT = 0;
 	double uT_max = 0;
 	double tmp = 0;
+	int tmp_x;
+	int tmp_y;
 	// Swapping 과정 시작..
-	while (1)
+	//while (1)
 	{
-		count = 0;
+		//count = 0;
 		uT_max = Uniformity();
 		//uT = Uniformity();
 		for (int i = 0; i < ts; i++)
 		{
 			for (int j = 0; j < ts; j++)
 			{
+				tmp_x = 0;
+				tmp_y = 0;
 				//printf("%lf\n", uT);
 				for (int y = -1; y <= 1; y++)
 				{
@@ -398,30 +436,34 @@ void Threshold(int n)
 							tmp = T[i][j];
 							T[i][j] = T[i + y][j + x];
 							T[i + y][j + x] = tmp;
+
 							uT = Uniformity();
 							if (uT_max < uT)
 							{
 								uT_max = uT;
-								count++;
+								tmp_x = x;
+								tmp_y = y;
+								//count++;
 							}
-							else
-							{
-								tmp = T[i][j];
-								T[i][j] = T[i + y][j + x];
-								T[i + y][j + x] = tmp;
-							}
+
+							tmp = T[i][j];
+							T[i][j] = T[i + y][j + x];
+							T[i + y][j + x] = tmp;
 						}
 					}
 				}
+				tmp = T[i][j];
+				T[i][j] = T[i + tmp_y][j + tmp_x];
+				T[i + tmp_y][j + tmp_x] = tmp;
 			}
 			//printf("test2\n");
 		}
 
-		printf("Threshold count : %d\n", count);
-		if (count == 0)
-			break;
+		//printf("Threshold count : %d\n", count);
+		//if (count == 0)
+			//break;
 	}
-
+	/*
 	for (int i = 0; i < n; i++)
 	{
 		for (int j = 0; j < n; j++)
@@ -430,6 +472,7 @@ void Threshold(int n)
 		}
 		printf("\n");
 	}
+	*/
 }
 // 균일성 값 리턴
 double Uniformity()
