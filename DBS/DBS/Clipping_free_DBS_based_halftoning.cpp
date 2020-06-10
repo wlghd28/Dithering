@@ -29,16 +29,16 @@ unsigned char* pix_check; // 값이 결정된 픽셀인지 아닌지 판단
 //double* err;
 int * pixE;
 
-double T[128][128];
-int ts = 128;	// threshold array size
-int D = 7;
+double T[16][16];
+int ts = 16;	// threshold array size
+int D = 6;
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
 
-double G[9][9];
-int fs = 9;	// 가우시안 필터 사이즈
-double CPP[17][17];
-int halfcppsize = 8;
+double G[7][7];
+int fs = 7;	// 가우시안 필터 사이즈
+double CPP[13][13];
+int halfcppsize = 6;
 
 /*
 double G[11][11];
@@ -61,15 +61,16 @@ void BayerMatrix(int n);		// 정렬 디더링 할 때 쓸 임계값 행렬 생성
 double Uniformity();			// 임계값 행렬의 균일성을 구하는 함수
 void Halftone();				// 초기 하프톤 이미지 생성
 void Dither();				// 디더링 작업
-void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
+void Fread(FILE *fp);				// 파일포인터에 있는 파일을 읽는 함수
+void Fwrite(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 
 int main(void)
 {
 	FILE * fp;
-	//fp = fopen("newEDIMAGE.bmp", "rb");
-	fp = fopen("newEDIMAGE2.bmp", "rb");
-	//fp = fopen("test.bmp", "rb");
-	//fp = fopen("bird2_720_C.bmp", "rb");
+	//fp = fopen("../Images/newEDIMAGE.bmp", "rb");
+	fp = fopen("../Images/newEDIMAGE2.bmp", "rb");
+	//fp = fopen("../Images/test.bmp", "rb");
+	//fp = fopen("../Images/bird2_720_C.bmp", "rb");
 
 	if (fp == NULL)
 	{
@@ -77,16 +78,12 @@ int main(void)
 		return 0;
 	}
 
-	fread(&bfh, sizeof(bfh), 1, fp);
-	fread(&bih, sizeof(bih), 1, fp);
-
-	rgb = (RGBQUAD*)malloc(sizeof(RGBQUAD) * 256);
-	fread(rgb, sizeof(RGBQUAD), 256, fp);
+	Fread(fp);	// 파일을 읽어서 데이터를 추출
 
 	// BPL을 맞춰주기 위해서 픽셀데이터의 사이즈를 4의 배수로 조정
 	bpl = (bih.biWidth + 3) / 4 * 4;
 	bph = (bih.biHeight + 3) / 4 * 4;
-	//printf("%d %d\n", bpl, bph);
+	printf("%d %d\n", bpl, bph);
 
 	pix = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
 	fread(pix, sizeof(unsigned char), bpl * bph, fp);
@@ -97,13 +94,13 @@ int main(void)
 	pix_hvs = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
 	//memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
 
-	//pix_check = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
+	pix_check = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
 
 	//err = (double *)calloc(bpl * bph, sizeof(double));
 
 	CEP = (double *)calloc((bpl + halfcppsize * 2) * (bph + halfcppsize * 2), sizeof(double));
 
-	printf("%p %p %p \n", CEP, pix, pix_hvs);
+	printf("%d %d %d \n", _msize(CEP), _msize(pix), _msize(pix_hvs));
 
 	//pixE = (int *)calloc(bpl * bph, sizeof(int));
 
@@ -127,18 +124,18 @@ int main(void)
 	printf("Total processing Time_DBS : %f ms\n", total_Time_CPU * 1000);
 	//system("pause");
 
-	//sprintf(str, "new_DBS_Dither.bmp");
-	sprintf(str, "new_DBS_Dither2.bmp");
-	//sprintf(str, "test_DBS_Dither.bmp");
-	//sprintf(str, "bird2_DBS_Dither_720_C.bmp");
+	//sprintf(str, "../Images/new_DBS_Dither.bmp");
+	sprintf(str, "../Images/new_DBS_Dither2.bmp");
+	//sprintf(str, "../Images/test_DBS_Dither.bmp");
+	//sprintf(str, "../Images/bird2_DBS_Dither_720_C.bmp");
 
-	FwriteCPU(str);
+	Fwrite(str);
 
 	free(rgb);
 	free(pix);
 	//free(pix_ms);
 	free(pix_hvs);
-	//free(pix_check);
+	free(pix_check);
 	//free(err);
 	free(CEP);
 	//free(pixE);
@@ -358,50 +355,18 @@ void XCORR()
 // DBS 기반으로 만들어진 임계값 행렬 구현중...
 void Threshold(int n)
 {
-	// 초기 임계값 행렬에 0 ~ D 값을 할당
-
+	// 초기 임계값 행렬에 0 값을 할당
+	/*
 	for (int i = 0; i < n; i++)
 	{
 		for (int j = 0; j < n; j++)
 		{
 			//T[i][j] = (i * n + j) % (D + 1);
-			T[i][j] = rand() % (D + 1);
-		}
-	}
-
-
-	//srand(time(NULL));
-	//double random;
-	//int index = 0;
-	/*
-	for (int y = 1; y < bph - 1; y++)
-	{
-		for (int x = 1; x < bpl - 1; x++)
-		{
-			random = (double)GaussianRandom(1, 0);
-			//printf("%lf\n", tmp);
-			//if (random < 0)
-				//random = 0;
-			//else if (random > 1)
-				//random = 1;
-			T[y][x] = random;
-			T[y][x] *= D;
+			//T[i][j] = rand() % 6;
+			T[i][j] = 0;
 		}
 	}
 	*/
-	/*
-	while (index <= ts * ts)
-	{
-		random = (double)GaussianRandom(D + 1, 0);
-		//printf("%lf\n", tmp);
-		if (random >= 0 && random <= D)
-		{
-			T[index / ts][index % ts] = random;
-			index++;
-		}
-	}
-	*/
-
 	// DBS 기반 스와핑을 통해 균일성이 최대가 되도록 알고리즘 적용
 	//int count = 0;			// 유클리드 최소거리 값이 갱신되는 횟수.
 	double uT = 0;
@@ -495,7 +460,7 @@ double Uniformity()
 					{
 						if (j + x < 0 || j + x >= ts)
 							continue;
-						if (y != 0 && x != 0)
+						if (!(y == 0 && x == 0))
 						{
 							if (T[i + y][j + x] <= T[i][j])
 							{
@@ -551,6 +516,7 @@ void BayerMatrix(int n)
 		}
 		//printf("\n");
 	}
+
 }
 /*
 // 가우시안 필터
@@ -657,8 +623,8 @@ void Halftone()
 			//printf("%lf\n", tmp);
 			if (tmp > 0.5)
 			{
-				//if(pix_check[y * bpl + x] == 0)
-				pix_hvs[y * bpl + x] = 255;
+				if (pix_check[y * bpl + x] == 0)
+					pix_hvs[y * bpl + x] = 255;
 			}
 		}
 	}
@@ -682,6 +648,7 @@ void Dither()
 		}
 	}
 	*/
+
 	// Ordered Dithering based DBS
 
 	Threshold(ts);	// Threshold array 생성
@@ -774,7 +741,15 @@ void Dither()
 	}
 	*/
 }
-void FwriteCPU(char * fn)
+void Fread(FILE *fp)
+{
+	fread(&bfh, sizeof(bfh), 1, fp);
+	fread(&bih, sizeof(bih), 1, fp);
+
+	rgb = (RGBQUAD*)malloc(sizeof(RGBQUAD) * 256);
+	fread(rgb, sizeof(RGBQUAD), 256, fp);
+}
+void Fwrite(char * fn)
 {
 	// 데이터 픽셀값을 bmp파일로 쓴다.
 	FILE * fp2 = fopen(fn, "wb");
