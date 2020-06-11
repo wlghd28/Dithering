@@ -29,8 +29,8 @@ unsigned char* pix_check; // 값이 결정된 픽셀인지 아닌지 판단
 //double* err;
 int * pixE;
 
-double T[16][16];
-int ts = 16;	// threshold array size
+double T[512][512];
+int ts = 256;	// threshold array size
 int D = 6;
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
@@ -115,7 +115,7 @@ int main(void)
 
 	total_Time_CPU = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
-	//Dither();
+	Dither();
 	// Direct Binary Search 디더링
 	DBS();
 	QueryPerformanceCounter(&tot_endClock);
@@ -189,7 +189,7 @@ void DBS()
 		{
 			for (int j = 1; j < bpl - 1; j++)
 			{
-				//if (pix_check[i * bpl + j] == 0)
+				if (pix_check[i * bpl + j] == 0)
 				{
 					a0c = 0;
 					a1c = 0;
@@ -356,74 +356,81 @@ void XCORR()
 void Threshold(int n)
 {
 	// 초기 임계값 행렬에 0 값을 할당
-	/*
+
 	for (int i = 0; i < n; i++)
 	{
 		for (int j = 0; j < n; j++)
 		{
 			//T[i][j] = (i * n + j) % (D + 1);
-			//T[i][j] = rand() % 6;
-			T[i][j] = 0;
+			T[i][j] = rand() % (D + 1);
+			//T[i][j] = 0;
 		}
 	}
-	*/
+
 	// DBS 기반 스와핑을 통해 균일성이 최대가 되도록 알고리즘 적용
-	//int count = 0;			// 유클리드 최소거리 값이 갱신되는 횟수.
+	//int count = 0;	
+	int value = 0;
 	double uT = 0;
 	double uT_max = 0;
 	double tmp = 0;
-	int tmp_x;
-	int tmp_y;
-	// Swapping 과정 시작..
-	//while (1)
+	int tmp_i = 0;
+	int tmp_j = 0;
+
+	// Swapping 과정 시작.
+	while (value <= D)
 	{
 		//count = 0;
-		uT_max = Uniformity();
+		uT_max = 0;
 		//uT = Uniformity();
+
 		for (int i = 0; i < ts; i++)
 		{
 			for (int j = 0; j < ts; j++)
 			{
-				tmp_x = 0;
-				tmp_y = 0;
+				tmp_i = 0;
+				tmp_j = 0;
 				//printf("%lf\n", uT);
-				for (int y = -1; y <= 1; y++)
+				if (T[i][j] == value)
 				{
-					if (i + y < 0 || i + y >= ts)
-						continue;
-					for (int x = -1; x <= 1; x++)
+					for (int y = -1; y <= 1; y++)
 					{
-						if (j + x < 0 || j + x >= ts)
+						if (i + y < 0 || i + y >= ts)
 							continue;
-						if (!(x == 0 && y == 0))
+						for (int x = -1; x <= 1; x++)
 						{
+							if (j + x < 0 || j + x >= ts)
+								continue;
 							//swapping...
-							tmp = T[i][j];
-							T[i][j] = T[i + y][j + x];
-							T[i + y][j + x] = tmp;
-
-							uT = Uniformity();
-							if (uT_max < uT)
+							if (!(x == 0 && y == 0))
 							{
-								uT_max = uT;
-								tmp_x = x;
-								tmp_y = y;
-								//count++;
-							}
+								tmp = T[i + y][j + x];
+								T[i + y][j + x] = T[i][j];
+								T[i][j] = tmp;
 
-							tmp = T[i][j];
-							T[i][j] = T[i + y][j + x];
-							T[i + y][j + x] = tmp;
+								uT = Uniformity();
+
+								if (uT_max < uT)
+								{
+									uT_max = uT;
+									tmp_j = x;
+									tmp_i = y;
+									//count++;
+								}
+
+								tmp = T[i + y][j + x];
+								T[i + y][j + x] = T[i][j];
+								T[i][j] = tmp;
+							}
 						}
 					}
+					tmp = T[i][j];
+					T[i][j] = T[i + tmp_i][j + tmp_j];
+					T[i + tmp_i][j + tmp_j] = tmp;
 				}
-				tmp = T[i][j];
-				T[i][j] = T[i + tmp_y][j + tmp_x];
-				T[i + tmp_y][j + tmp_x] = tmp;
 			}
 			//printf("test2\n");
 		}
-
+		value++;
 		//printf("Threshold count : %d\n", count);
 		//if (count == 0)
 			//break;
@@ -449,6 +456,7 @@ double Uniformity()
 	{
 		for (int j = 0; j < ts; j++)
 		{
+			// 초기엔 거리값을 최대값으로 초기화
 			min = ts * ts * 2;
 			for (int k = 1; k < ts; k++)
 			{
@@ -460,7 +468,7 @@ double Uniformity()
 					{
 						if (j + x < 0 || j + x >= ts)
 							continue;
-						if (y == k || y == -k || x == k || x == -k)
+						if (x == k || y == k || x == -k || y == -k)
 						{
 							if (T[i + y][j + x] <= T[i][j])
 							{
@@ -473,7 +481,7 @@ double Uniformity()
 						}
 					}
 				}
-				// 거리의 최솟값이 결정된 경우 반복문 탈출
+				// 거리의 값이 결정된 경우 반복문 탈출
 				if (min != ts * ts * 2)
 					break;
 			}
