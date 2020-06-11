@@ -460,7 +460,7 @@ double Uniformity()
 					{
 						if (j + x < 0 || j + x >= ts)
 							continue;
-						if (!(y == 0 && x == 0))
+						if (y == k || y == -k || x == k || x == -k)
 						{
 							if (T[i + y][j + x] <= T[i][j])
 							{
