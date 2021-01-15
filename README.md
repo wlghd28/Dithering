@@ -1,4 +1,4 @@
-#Dithering 알고리즘에 관한 프로젝트 입니다.
+# Dithering 알고리즘에 관한 프로젝트 입니다.
 
 # DirectBinarySearch
 DBS(Direct Binary Search)에 관한 프로젝트 입니다.  
