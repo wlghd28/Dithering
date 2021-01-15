@@ -4,13 +4,13 @@
 DBS(Direct Binary Search)에 관한 프로젝트 입니다.  
 Clipping_Free_DBS 미완성..  
 
-Given an error metric:
-d(I(x,y),b(x,y))
-example: d(I,b) = Σ((I(x,y)-b(x,y))2)
-Initialize binary image b(x,y) (example - choose random binary image).
-Randomly chose a pixel (x0,y0) in b(x,y)
-if d(I,b) < d(I,b) then assign b = b where b is b except for b(x0,y0) =1-b(x0,y0)
-Repeat last step until |d(I,b) - d(I,b)| is “small”.  
+Given an error metric:  
+d(I(x,y),b(x,y))  
+example: d(I,b) = Σ((I(x,y)-b(x,y))2)  
+Initialize binary image b(x,y) (example - choose random binary image).  
+Randomly chose a pixel (x0,y0) in b(x,y)  
+if d(I,b) < d(I,b) then assign b = b where b is b except for b(x0,y0) =1-b(x0,y0)  
+Repeat last step until |d(I,b) - d(I,b)| is “small”.    
 
 #  
 
