@@ -1,7 +1,7 @@
 # Dithering 알고리즘에 관한 프로젝트 입니다.
 
 # DBS(Direct Binary Search)
-DBS 구현 완료 
+DBS 구현 완료   
 Clipping_Free_DBS 미완성..  
 
 Given an error metric:  
