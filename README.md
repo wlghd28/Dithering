@@ -1,7 +1,7 @@
 # Dithering 알고리즘에 관한 프로젝트 입니다.
 
 # DBS(Direct Binary Search)
-DBS(Direct Binary Search)에 관한 프로젝트 입니다.  
+DBS 구현 완료 
 Clipping_Free_DBS 미완성..  
 
 Given an error metric:  
@@ -15,7 +15,7 @@ Repeat last step until |d(I,b) - d(I,b)| is “small”.
 #  
 
 # ERROR_DIFFUSION_DITHERING
-에러 디퓨전 디더링에 대한 프로젝트 입니다.
+에러 디퓨전 디더링에 대한 알고리즘 입니다.
 
 # Floyd - Steinberg Dithering
 플로이드-스타인버그 디더링은 1976년 로버트 플로이드와 루이스 스타인버그가 고안한 영상 디더링 알고리즘이다. 이는 영상 편집 소프트웨어에서 널리 쓰이는데, 예를 들어 최대 256색만을 지원하는 GIF 형식으로 영상을 저장하기 위해 변환할 때 쓰일 수 있다.
