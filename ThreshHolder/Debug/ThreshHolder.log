@@ -1,0 +1,3 @@
+﻿  소스.cpp
+d:\지홍\threshholder\threshholder\소스.cpp(19): warning C4101: 'newpixel' :참조되지 않은 지역 변수입니다.
+  ThreshHolder.vcxproj -> D:\지홍\ThreshHolder\Debug\ThreshHolder.exe
