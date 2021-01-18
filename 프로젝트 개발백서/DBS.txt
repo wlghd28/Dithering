@@ -9,46 +9,46 @@
 #include <time.h>
 
 #pragma warning(disable : 4996)
-// ½Ã°£À» °è»êÇÏ±â À§ÇÑ º¯¼ö
+// ì‹œê°„ì„ ê³„ì‚°í•˜ê¸° ìœ„í•œ ë³€ìˆ˜
 double total_Time_GPU, total_Time_CPU, tmp_time;
 LARGE_INTEGER beginClock, endClock, clockFreq;
 LARGE_INTEGER tot_beginClock, tot_endClock, tot_clockFreq;
 
-// ºñÆ®¸Ê ÀÌ¹ÌÁö Á¤º¸¸¦ ¹Ş¾Æ¿À±â À§ÇÑ ±¸Á¶Ã¼ º¯¼ö
+// ë¹„íŠ¸ë§µ ì´ë¯¸ì§€ ì •ë³´ë¥¼ ë°›ì•„ì˜¤ê¸° ìœ„í•œ êµ¬ì¡°ì²´ ë³€ìˆ˜
 BITMAPFILEHEADER bfh;
 BITMAPINFOHEADER bih;
 RGBQUAD * rgb;
 
-// ÀÌ¹ÌÁö Á¤º¸¸¦ ´Ù·ç±â À§ÇØ »ç¿ëÇÏ´Â º¯¼ö
+// ì´ë¯¸ì§€ ì •ë³´ë¥¼ ë‹¤ë£¨ê¸° ìœ„í•´ ì‚¬ìš©í•˜ëŠ” ë³€ìˆ˜
 int bpl, bph;
-unsigned char* pix; // ¿øº» ÀÌ¹ÌÁö
-unsigned char* pix_hvs; // ÇÏÇÁÅæ ÀÌ¹ÌÁö
+unsigned char* pix; // ì›ë³¸ ì´ë¯¸ì§€
+unsigned char* pix_hvs; // í•˜í”„í†¤ ì´ë¯¸ì§€
 
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
 
 double G[7][7];
-int fs = 7;	// °¡¿ì½Ã¾È ÇÊÅÍ »çÀÌÁî
-double CPP[13][13]; // ÀÚ±â»ó°ü Çà·Ä(G, G)
+int fs = 7;	// ê°€ìš°ì‹œì•ˆ í•„í„° ì‚¬ì´ì¦ˆ
+double CPP[13][13]; // ìê¸°ìƒê´€ í–‰ë ¬(G, G)
 int halfcppsize = 6;
 
 /*
 double G[11][11];
-int fs = 11;	// °¡¿ì½Ã¾È ÇÊÅÍ »çÀÌÁî
+int fs = 11;	// ê°€ìš°ì‹œì•ˆ í•„í„° ì‚¬ì´ì¦ˆ
 double CPP[21][21];
 int halfcppsize = 10;
 */
 
-double* CEP;    // »óÈ£»ó°ü Çà·Ä(err, CPP)
-char str[100];				// ÆÄÀÏ¸íÀ» ´ãÀ» ¹®ÀÚ¿­
+double* CEP;    // ìƒí˜¸ìƒê´€ í–‰ë ¬(err, CPP)
+char str[100];				// íŒŒì¼ëª…ì„ ë‹´ì„ ë¬¸ìì—´
 
-void DBS();					// Direct Binary Search ¿¬»ê
-void GaussianFilter();		// °¡¿ì½Ã¾È ÇÊÅÍ »ı¼º
-double GaussianRandom(double stddev, double average);		// Á¤±ÔºĞÆ÷ ³­¼ö »ı¼º
-void CONV();	// 2Â÷¿ø ÄÁº¼·ç¼Ç ¿¬»ê
-void XCORR();	// »óÈ£»ó°ü°ü°è ¿¬»ê
-void Halftone();				// ÃÊ±â ÇÏÇÁÅæ ÀÌ¹ÌÁö »ı¼º
-void FwriteCPU(char *);		// ¿¬»êµÈ ÇÈ¼¿°ªÀ» bmpÆÄÀÏ·Î ÀúÀåÇÏ´Â ÇÔ¼ö
+void DBS();					// Direct Binary Search ì—°ì‚°
+void GaussianFilter();		// ê°€ìš°ì‹œì•ˆ í•„í„° ìƒì„±
+double GaussianRandom(double stddev, double average);		// ì •ê·œë¶„í¬ ë‚œìˆ˜ ìƒì„±
+void CONV();	// 2ì°¨ì› ì»¨ë³¼ë£¨ì…˜ ì—°ì‚°
+void XCORR();	// ìƒí˜¸ìƒê´€ê´€ê³„ ì—°ì‚°
+void Halftone();				// ì´ˆê¸° í•˜í”„í†¤ ì´ë¯¸ì§€ ìƒì„±
+void FwriteCPU(char *);		// ì—°ì‚°ëœ í”½ì…€ê°’ì„ bmpíŒŒì¼ë¡œ ì €ì¥í•˜ëŠ” í•¨ìˆ˜
 
 int main(void)
 {
@@ -64,7 +64,7 @@ int main(void)
 	rgb = (RGBQUAD*)malloc(sizeof(RGBQUAD) * 256);
 	fread(rgb, sizeof(RGBQUAD), 256, fp);
 
-	// BPLÀ» ¸ÂÃçÁÖ±â À§ÇØ¼­ ÇÈ¼¿µ¥ÀÌÅÍÀÇ »çÀÌÁî¸¦ 4ÀÇ ¹è¼ö·Î Á¶Á¤
+	// BPLì„ ë§ì¶°ì£¼ê¸° ìœ„í•´ì„œ í”½ì…€ë°ì´í„°ì˜ ì‚¬ì´ì¦ˆë¥¼ 4ì˜ ë°°ìˆ˜ë¡œ ì¡°ì •
 	bpl = (bih.biWidth + 3) / 4 * 4;
 	bph = (bih.biHeight + 3) / 4 * 4;
 
@@ -79,10 +79,10 @@ int main(void)
 	memset(CEP, 0, sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
 
 
-	QueryPerformanceFrequency(&tot_clockFreq);	// ½Ã°£À» ÃøÁ¤ÇÏ±âÀ§ÇÑ ÁØºñ
+	QueryPerformanceFrequency(&tot_clockFreq);	// ì‹œê°„ì„ ì¸¡ì •í•˜ê¸°ìœ„í•œ ì¤€ë¹„
 
 	total_Time_CPU = 0;
-	QueryPerformanceCounter(&tot_beginClock); // ½Ã°£ÃøÁ¤ ½ÃÀÛ
+	QueryPerformanceCounter(&tot_beginClock); // ì‹œê°„ì¸¡ì • ì‹œì‘
 	// Direct Binary Search
 	DBS();
 	QueryPerformanceCounter(&tot_endClock);
@@ -109,7 +109,7 @@ int main(void)
 
 void DBS()
 {
-	int count = 0;			// ÃÖ¼ÒÁ¦°ö¿ÀÂ÷ °ªÀÌ 0ÀÌ ¾Æ´Ò¶§±îÁö ¹İº¹¹®À» µ¹¸®±âÀ§ÇÑ Ä«¿îÆ® º¯¼ö
+	int count = 0;			// ìµœì†Œì œê³±ì˜¤ì°¨ ê°’ì´ 0ì´ ì•„ë‹ë•Œê¹Œì§€ ë°˜ë³µë¬¸ì„ ëŒë¦¬ê¸°ìœ„í•œ ì¹´ìš´íŠ¸ ë³€ìˆ˜
 	double eps = 0.0;
 	double eps_min = 0.0;
 	int a0 = 0;
@@ -119,15 +119,15 @@ void DBS()
 	int cpx = 0;
 	int cpy = 0;
 
-	Halftone();				// ÃÊ±â ÇÏÇÁÅæÀÌ¹ÌÁö »ı¼º
+	Halftone();				// ì´ˆê¸° í•˜í”„í†¤ì´ë¯¸ì§€ ìƒì„±
 
-	GaussianFilter();		// °¡¿ì½Ã¾È ÇÊÅÍ »ı¼º
+	GaussianFilter();		// ê°€ìš°ì‹œì•ˆ í•„í„° ìƒì„±
 
-	CONV();		// 2Â÷¿ø ÄÁº¼·ç¼Ç ¿¬»ê Çà·Ä »ı¼º (CPP)
+	CONV();		// 2ì°¨ì› ì»¨ë³¼ë£¨ì…˜ ì—°ì‚° í–‰ë ¬ ìƒì„± (CPP)
 
-	XCORR();	// »óÈ£°ü°è¿¬»ê Çà·Ä »ı¼º (CEP)
+	XCORR();	// ìƒí˜¸ê´€ê³„ì—°ì‚° í–‰ë ¬ ìƒì„± (CEP)
 
-	// DBS °úÁ¤ ½ÃÀÛ..
+	// DBS ê³¼ì • ì‹œì‘..
 	while (1)
 	{
 		count = 0;
@@ -224,7 +224,7 @@ void DBS()
 			break;
 	}
 }
-// °¡¿ì½Ã¾È ÇÊÅÍ »ı¼º
+// ê°€ìš°ì‹œì•ˆ í•„í„° ìƒì„±
 void GaussianFilter()
 {
 	double d = /*(fs - 1) / 6*/ 1.2;			// sigma = 1.2
@@ -240,7 +240,7 @@ void GaussianFilter()
 			//sum += G[k + gaulen][l + gaulen];
 
 
-			// fs = 11 ÀÏ¶§ °á°ú°¡ °¡Àå ÁÁ¾ÒÀ½..	
+			// fs = 11 ì¼ë•Œ ê²°ê³¼ê°€ ê°€ì¥ ì¢‹ì•˜ìŒ..	
 			/*
 			c = (k * k + l * l) / (2 * d * d) + 1;
 			G[k + gaulen][l + gaulen] = 1 / c;
@@ -248,7 +248,7 @@ void GaussianFilter()
 		}
 	}
 }
-// 2Â÷¿ø ÄÁº¼·ç¼Ç ¿¬»ê
+// 2ì°¨ì› ì»¨ë³¼ë£¨ì…˜ ì—°ì‚°
 void CONV()
 {
 	double sum = 0;
@@ -271,7 +271,7 @@ void CONV()
 		}
 	}
 }
-// »óÈ£»ó°ü°ü°è ¿¬»ê
+// ìƒí˜¸ìƒê´€ê´€ê³„ ì—°ì‚°
 void XCORR()
 {
 	double sum = 0;
@@ -295,14 +295,14 @@ void XCORR()
 		}
 	}
 }
-// Á¤±ÔºĞÆ÷ ³­¼ö ¹ß»ı
+// ì •ê·œë¶„í¬ ë‚œìˆ˜ ë°œìƒ
 double GaussianRandom(double stddev, double average)
 {
 	double v1, v2, s, temp;
 
 	do {
-		v1 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 ±îÁöÀÇ °ª
-		v2 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 ±îÁöÀÇ °ª
+		v1 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 ê¹Œì§€ì˜ ê°’
+		v2 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 ê¹Œì§€ì˜ ê°’
 		s = v1 * v1 + v2 * v2;
 	} while (s >= 1 || s == 0);
 
@@ -315,7 +315,7 @@ double GaussianRandom(double stddev, double average)
 }
 void Halftone()
 {
-	// Á¤±ÔºĞÆ÷ ³­¼ö·Î ÇÏÇÁÅæÀÌ¹ÌÁö »ı¼º
+	// ì •ê·œë¶„í¬ ë‚œìˆ˜ë¡œ í•˜í”„í†¤ì´ë¯¸ì§€ ìƒì„±
 	srand(time(NULL));
 	double tmp;
 	for (int y = 1; y < bph - 1; y++)
@@ -330,7 +330,7 @@ void Halftone()
 		}
 	}
 }
-// µ¥ÀÌÅÍ ÇÈ¼¿°ªÀ» bmpÆÄÀÏ·Î ¾´´Ù.
+// ë°ì´í„° í”½ì…€ê°’ì„ bmpíŒŒì¼ë¡œ ì“´ë‹¤.
 void FwriteCPU(char * fn)
 {
 	FILE * fp2 = fopen(fn, "wb");
