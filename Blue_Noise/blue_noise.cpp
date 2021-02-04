@@ -69,12 +69,12 @@ stdcomplexfloat DFTPixel(const SImageData &srcImage, size_t K, size_t L)
 	{
 		for (size_t y = 0; y srcImage.m_height; ++y)
 		{
-			Get the pixel value(assuming greyscale) and convert it to[0, 1] space
-				const uint8 src = &srcImage.m_pixels[(y  srcImage.m_pitch) + x  3];
+			//Get the pixel value(assuming greyscale) and convert it to[0, 1] space
+			const uint8 src = &srcImage.m_pixels[(y  srcImage.m_pitch) + x  3];
 			float grey = float(src[0])  255.0f;
 
-			Add to the sum of the return value
-				float v = float(K  x)  float(srcImage.m_width);
+			//Add to the sum of the return value
+			float v = float(K  x)  float(srcImage.m_width);
 			v += float(L  y)  float(srcImage.m_height);
 			ret += stdcomplexfloat(grey, 0.0f)  stdpolarfloat(1.0f, -2.0f  c_pi  v);
 		}
@@ -86,11 +86,11 @@ stdcomplexfloat DFTPixel(const SImageData &srcImage, size_t K, size_t L)
 ======================================================================================
 void DFTImage(const SImageData &srcImage, SImageDataComplex &destImage)
 {
-	NOTE this function assumes srcImage is greyscale, so works on only the red component of srcImage.
-		ImageToGrey() will convert an image to greyscale.
+	//NOTE this function assumes srcImage is greyscale, so works on only the red component of srcImage.
+		I//mageToGrey() will convert an image to greyscale.
 
-		size the output dft data
-		destImage.m_width = srcImage.m_width;
+	//size the output dft data
+	destImage.m_width = srcImage.m_width;
 	destImage.m_height = srcImage.m_height;
 	destImage.m_pixels.resize(destImage.m_widthdestImage.m_height);
 
@@ -103,8 +103,8 @@ void DFTImage(const SImageData &srcImage, SImageDataComplex &destImage)
 
 	printf(Doing DFT with %zu threads...n, numThreads);
 
-	calculate 2d dft(brute force, not using fast fourier transform) multithreadedly
-		stdatomicsize_t nextRow(0);
+	//calculate 2d dft(brute force, not using fast fourier transform) multithreadedly
+	stdatomicsize_t nextRow(0);
 	for (stdthread& t threads)
 	{
 		t = stdthread(
@@ -116,25 +116,25 @@ void DFTImage(const SImageData &srcImage, SImageDataComplex &destImage)
 
 			while (row  srcImage.m_height)
 			{
-				calculate the DFT for every pixel  frequency in this row
-					for (size_t x = 0; x srcImage.m_width; ++x)
-					{
-						destImage.m_pixels[row  destImage.m_width + x] = DFTPixel(srcImage, x, row);
-					}
+				//calculate the DFT for every pixel  frequency in this row
+				for (size_t x = 0; x srcImage.m_width; ++x)
+				{
+					destImage.m_pixels[row  destImage.m_width + x] = DFTPixel(srcImage, x, row);
+				}
 
-				report progress if we should
-					if (reportProgress)
+				//report progress if we should
+				if (reportProgress)
+				{
+					int percent = int(100.0f  float(row)  float(srcImage.m_height));
+					if (lastPercent != percent)
 					{
-						int percent = int(100.0f  float(row)  float(srcImage.m_height));
-						if (lastPercent != percent)
-						{
-							lastPercent = percent;
-							printf(rDFT %i%%, lastPercent);
-						}
+						lastPercent = percent;
+						printf(rDFT %i%%, lastPercent);
 					}
+				}
 
-				go to the next row
-					row = nextRow.fetch_add(1);
+				//go to the next row
+				row = nextRow.fetch_add(1);
 			}
 		}
 		);
@@ -149,23 +149,23 @@ void DFTImage(const SImageData &srcImage, SImageDataComplex &destImage)
 ======================================================================================
 void GetMagnitudeData(const SImageDataComplex& srcImage, SImageData& destImage)
 {
-	size the output image
-		destImage.m_width = srcImage.m_width;
+	//size the output image
+	destImage.m_width = srcImage.m_width;
 	destImage.m_height = srcImage.m_height;
 	destImage.m_pitch = 4  ((srcImage.m_width  24 + 31)  32);
 	destImage.m_pixels.resize(destImage.m_pitchdestImage.m_height);
 
-	get floating point magnitude data
-		stdvectorfloat magArray;
+	//get floating point magnitude data
+	stdvectorfloat magArray;
 	magArray.resize(srcImage.m_widthsrcImage.m_height);
 	float maxmag = 0.0f;
 	for (size_t x = 0; x srcImage.m_width; ++x)
 	{
 		for (size_t y = 0; y srcImage.m_height; ++y)
 		{
-			Offset the information by half width & height in the positive direction.
-				This makes frequency 0 (DC)be at the image origin, like most diagrams show it.
-				int k = (x + (int)srcImage.m_width  2) % (int)srcImage.m_width;
+			//Offset the information by half width & height in the positive direction.
+			//This makes frequency 0 (DC)be at the image origin, like most diagrams show it.
+			int k = (x + (int)srcImage.m_width  2) % (int)srcImage.m_width;
 			int l = (y + (int)srcImage.m_height  2) % (int)srcImage.m_height;
 			const stdcomplexfloat &src = srcImage.m_pixels[lsrcImage.m_width + k];
 
@@ -181,53 +181,53 @@ void GetMagnitudeData(const SImageDataComplex& srcImage, SImageData& destImage)
 
 	const float c = 255.0f  log(1.0f + maxmag);
 
-	normalize the magnitude data and send it back in[0, 255]
-		for (size_t x = 0; x srcImage.m_width; ++x)
+	//normalize the magnitude data and send it back in[0, 255]
+	for (size_t x = 0; x srcImage.m_width; ++x)
+	{
+		for (size_t y = 0; y srcImage.m_height; ++y)
 		{
-			for (size_t y = 0; y srcImage.m_height; ++y)
-			{
-				float src = c  log(1.0f + magArray[ysrcImage.m_width + x]);
+			float src = c  log(1.0f + magArray[ysrcImage.m_width + x]);
 
-				uint8 magu8 = uint8(src);
+			uint8 magu8 = uint8(src);
 
-				uint8 dest = &destImage.m_pixels[ydestImage.m_pitch + x  3];
-				dest[0] = magu8;
-				dest[1] = magu8;
-				dest[2] = magu8;
-			}
+			uint8 dest = &destImage.m_pixels[ydestImage.m_pitch + x  3];
+			dest[0] = magu8;
+			dest[1] = magu8;
+			dest[2] = magu8;
 		}
+	}
 }
 
 ======================================================================================
 void GetPhaseData(const SImageDataComplex& srcImage, SImageData& destImage)
 {
-	size the output image
-		destImage.m_width = srcImage.m_width;
+	//size the output image
+	destImage.m_width = srcImage.m_width;
 	destImage.m_height = srcImage.m_height;
 	destImage.m_pitch = 4  ((srcImage.m_width  24 + 31)  32);
 	destImage.m_pixels.resize(destImage.m_pitchdestImage.m_height);
 
-	get floating point phase data, and encode it in[0, 255]
+	//get floating point phase data, and encode it in[0, 255]
 		for (size_t x = 0; x srcImage.m_width; ++x)
 		{
 			for (size_t y = 0; y srcImage.m_height; ++y)
 			{
-				Offset the information by half width & height in the positive direction.
-					This makes frequency 0 (DC)be at the image origin, like most diagrams show it.
-					int k = (x + (int)srcImage.m_width  2) % (int)srcImage.m_width;
+				//Offset the information by half width & height in the positive direction.
+				//This makes frequency 0 (DC)be at the image origin, like most diagrams show it.
+				int k = (x + (int)srcImage.m_width  2) % (int)srcImage.m_width;
 				int l = (y + (int)srcImage.m_height  2) % (int)srcImage.m_height;
 				const stdcomplexfloat &src = srcImage.m_pixels[lsrcImage.m_width + k];
 
-				get phase, and change it from[-pi, +pi] to[0, 255]
-					float phase = (0.5f + 0.5f  stdatan2(src.real(), src.imag())  c_pi);
+				//get phase, and change it from[-pi, +pi] to[0, 255]
+				float phase = (0.5f + 0.5f  stdatan2(src.real(), src.imag())  c_pi);
 				if (phase  0.0f)
 					phase = 0.0f;
 				if (phase  1.0f)
 					phase = 1.0;
 				uint8 phase255 = uint8(phase  255);
 
-				write the phase as grey scale color
-					uint8 dest = &destImage.m_pixels[ydestImage.m_pitch + x  3];
+				//write the phase as grey scale color
+				uint8 dest = &destImage.m_pixels[ydestImage.m_pitch + x  3];
 				dest[0] = phase255;
 				dest[1] = phase255;
 				dest[2] = phase255;
@@ -238,16 +238,16 @@ void GetPhaseData(const SImageDataComplex& srcImage, SImageData& destImage)
 ======================================================================================
 bool ImageSave(const SImageData &image, const char fileName)
 {
-	open the file if we can
-		FILE file;
+	//open the file if we can
+	FILE file;
 	file = fopen(fileName, wb);
 	if (!file) {
 		printf(Could not save %sn, fileName);
 		return false;
 	}
 
-	make the header info
-		BITMAPFILEHEADER header;
+	//make the header info
+	BITMAPFILEHEADER header;
 	BITMAPINFOHEADER infoHeader;
 
 	header.bfType = 0x4D42;
@@ -269,8 +269,8 @@ bool ImageSave(const SImageData &image, const char fileName)
 
 	header.bfSize = infoHeader.biSizeImage + header.bfOffBits;
 
-	write the data and close the file
-		fwrite(&header, sizeof(header), 1, file);
+	//write the data and close the file
+	fwrite(&header, sizeof(header), 1, file);
 	fwrite(&infoHeader, sizeof(infoHeader), 1, file);
 	fwrite(&image.m_pixels[0], infoHeader.biSizeImage, 1, file);
 	fclose(file);
@@ -281,14 +281,14 @@ bool ImageSave(const SImageData &image, const char fileName)
 ======================================================================================
 bool ImageLoad(const char fileName, SImageData& imageData)
 {
-	open the file if we can
-		FILE file;
+	//open the file if we can
+	FILE file;
 	file = fopen(fileName, rb);
 	if (!file)
 		return false;
 
-	read the headers if we can
-		BITMAPFILEHEADER header;
+	//read the headers if we can
+	BITMAPFILEHEADER header;
 	BITMAPINFOHEADER infoHeader;
 	if (fread(&header, sizeof(header), 1, file) != 1
 		fread(&infoHeader, sizeof(infoHeader), 1, file) != 1
@@ -298,8 +298,8 @@ bool ImageLoad(const char fileName, SImageData& imageData)
 		return false;
 	}
 
-	read in our pixel data if we can.Note that it's in BGR order, and width is padded to the next power of 4
-		imageData.m_pixels.resize(infoHeader.biSizeImage);
+	//read in our pixel data if we can.Note that it's in BGR order, and width is padded to the next power of 4
+	imageData.m_pixels.resize(infoHeader.biSizeImage);
 	fseek(file, header.bfOffBits, SEEK_SET);
 	if (fread(&imageData.m_pixels[0], imageData.m_pixels.size(), 1, file) != 1)
 	{
@@ -354,9 +354,9 @@ void SampleTest(const SImageData& image, const SImageData& samples, const char f
 ======================================================================================
 inline float Distance(size_t x1, size_t y1, size_t x2, size_t y2, int imageWidth)
 {
-	this returns the toroidal distance between the points
-		aka the interval[0, width) wraps around
-		float dx = stdabs(float(x2) - float(x1));
+	//this returns the toroidal distance between the points
+		//aka the interval[0, width) wraps around
+	float dx = stdabs(float(x2) - float(x1));
 	float dy = stdabs(float(y2) - float(y1));
 
 	if (dx  float(imageWidth  2))
@@ -365,8 +365,8 @@ inline float Distance(size_t x1, size_t y1, size_t x2, size_t y2, int imageWidth
 	if (dy  float(imageWidth  2))
 		dy = float(imageWidth) - dy;
 
-	returning squared distance cause why not
-		return dxdx + dydy;
+	//returning squared distance cause why not
+	return dxdx + dydy;
 }
 
 ======================================================================================
@@ -377,21 +377,21 @@ int main(int argc, char argv)
 
 	const size_t c_blueNoiseSampleMultiplier = 1;
 
-	const size_t samples1 = 256;    16x16
-		const size_t samples2 = 1024;   32x32
-		const size_t samples3 = 4096;  128x128
+	const size_t samples1 = 256;    //16x16
+	const size_t samples2 = 1024;   //32x32
+	const size_t samples3 = 4096;  //128x128
 
-		load the source image
-		SImageData image;
+	//load the source image
+	SImageData image;
 	ImageLoad(Image.bmp, image);
 
-	init random number generator
-		stdrandom_device rd;
+	//init random number generator
+	stdrandom_device rd;
 	stdmt19937 rng(rd());
 	stduniform_int_distributionint dist(0, c_imageSize - 1);
 
-	white noise
-	{
+	//white noise
+	//{
 		SImageData samples;
 		ImageInit(samples, c_imageSize, c_imageSize);
 
@@ -427,10 +427,10 @@ int main(int argc, char argv)
 				}
 			}
 		}
-	}
+	//}
 
-		regular samples
-	{
+		//regular samples
+	//{
 
 		auto GridTest = [&](size_t sampleCount) {
 			SImageData samples;
@@ -477,10 +477,10 @@ int main(int argc, char argv)
 		GridTest(samples1);
 		GridTest(samples2);
 		GridTest(samples3);
-	}
+	//}
 
-		blue noise
-	{
+		//blue noise
+	//{
 		SImageData samples;
 		ImageInit(samples, c_imageSize, c_imageSize);
 
@@ -503,7 +503,7 @@ int main(int argc, char argv)
 				printf(rGenerating Blue Noise Samples %zu%%, percent);
 			}
 
-			 keep the candidate that is farthest from it's closest point
+			//keep the candidate that is farthest from it's closest point
 			size_t numCandidates = samplesPos.size()  c_blueNoiseSampleMultiplier + 1;
 			float bestDistance = 0.0f;
 			size_t bestCandidateX = 0;
@@ -513,7 +513,7 @@ int main(int argc, char argv)
 				size_t x = dist(rng);
 				size_t y = dist(rng);
 
-				 calculate the closest distance from this point to an existing sample
+				// calculate the closest distance from this point to an existing sample
 				float minDist = FLT_MAX;
 				for (const stdarraysize_t, 2 & samplePos samplesPos)
 				{
@@ -558,7 +558,7 @@ int main(int argc, char argv)
 				}
 			}
 		}
-	}
+	//}
 
 	return 0;
 }
