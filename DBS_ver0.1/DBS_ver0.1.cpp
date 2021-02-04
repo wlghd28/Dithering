@@ -20,10 +20,12 @@ BITMAPINFOHEADER bih;
 RGBQUAD * rgb;
 
 // 이미지 정보를 다루기 위해 사용하는 변수
-int bpl, bph;
+int bpl, pad;
+int width, height;
+long pix_size;
 unsigned char* pix; // 원본 이미지
 unsigned char* pix_hvs; // 하프톤 이미지
-
+unsigned char trash[3] = {0}; // 쓰레기 값
 
 double pi = 3.14159265358979323846264338327950288419716939937510;
 
@@ -53,30 +55,45 @@ void FwriteCPU(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 int main(void)
 {
 	FILE * fp;
-	fp = fopen("EDIMAGE.bmp", "rb");
+	fp = fopen("input.bmp", "rb");
+	//fp = fopen("EDIMAGE.bmp", "rb");
 	//fp = fopen("newEDIMAGE2.bmp", "rb");
 	//fp = fopen("test.bmp", "rb");
-	//fp = fopen("bird_K.bmp", "rb");
+	//fp = fopen("bird2_C.bmp", "rb");
+	if (fp == NULL)
+	{
+		printf("File Not Found!!\n");
+		return 0;
+	}
 
 	fread(&bfh, sizeof(bfh), 1, fp);
 	fread(&bih, sizeof(bih), 1, fp);
+	width = bih.biWidth;
+	height = bih.biHeight;
+	pix_size = width * height;
+	printf("width : %d , height : %d\n", width, height);
+	printf("image size : %d X %d\n", width, height);
 
 	rgb = (RGBQUAD*)malloc(sizeof(RGBQUAD) * 256);
 	fread(rgb, sizeof(RGBQUAD), 256, fp);
 
 	// BPL을 맞춰주기 위해서 픽셀데이터의 사이즈를 4의 배수로 조정
 	bpl = (bih.biWidth + 3) / 4 * 4;
-	bph = (bih.biHeight + 3) / 4 * 4;
+	// 쓰레기 패딩 값 계산
+	pad = bpl - width;
 
-	pix = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
-	memset(pix, 0, sizeof(unsigned char) * bpl * bph);
-	fread(pix, sizeof(unsigned char), bpl * bph, fp);
+	// 이미지 파일을 읽는다
+	pix = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
+	for (int i = 0; i < height; i++)
+	{
+		fread(pix + (i * width), sizeof(unsigned char), width, fp);
+		fread(&trash, sizeof(unsigned char), pad, fp);
+	}
 
-	pix_hvs = (unsigned char *)malloc(sizeof(unsigned char) * bpl * bph);
-	memset(pix_hvs, 0, sizeof(unsigned char) * bpl * bph);
+	pix_hvs = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
 
-	CEP = (double *)malloc(sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
-	memset(CEP, 0, sizeof(double) * (bpl + halfcppsize * 2) * (bph + halfcppsize * 2));
+	CEP = (double *)calloc((width + halfcppsize * 2) * (height + halfcppsize * 2), sizeof(double));
+	//memset(CEP, 0, sizeof(double) * (width + halfcppsize * 2) * (height + halfcppsize * 2));
 
 
 	QueryPerformanceFrequency(&tot_clockFreq);	// 시간을 측정하기위한 준비
@@ -91,10 +108,11 @@ int main(void)
 	printf("Total processing Time_DBS : %f ms\n", total_Time_CPU * 1000);
 	//system("pause");
 
-	sprintf(str, "DBS_Dither.bmp");
+	//sprintf(str, "DBS_Dither.bmp");
 	//sprintf(str, "new_DBS_Dither2.bmp");	
 	//sprintf(str, "test_DBS_Dither.bmp");
-	//sprintf(str, "bird_DBS_Dither_K.bmp");
+	//sprintf(str, "bird_DBS_Dither_C.bmp");
+	sprintf(str, "output.bmp");
 
 	FwriteCPU(str);
 
@@ -138,9 +156,9 @@ void DBS()
 		cpx = 0;
 		cpy = 0;
 
-		for (int i = 1; i < bph - 1; i++)
+		for (int i = 1; i < height - 1; i++)
 		{
-			for (int j = 1; j < bpl - 1; j++)
+			for (int j = 1; j < width - 1; j++)
 			{
 				a0c = 0;
 				a1c = 0;
@@ -149,15 +167,15 @@ void DBS()
 				eps_min = 0;
 				for (int y = -1; y <= 1; y++)
 				{
-					//if (i + y < 0 || i + y >= bph)
+					//if (i + y < 0 || i + y >= height)
 						//continue;			
 					for (int x = -1; x <= 1; x++)
 					{
-						//if (j + x < 0 || j + x >= bpl)
+						//if (j + x < 0 || j + x >= height)
 							//continue;
 						if (y == 0 && x == 0)
 						{
-							if (pix_hvs[i * bpl + j] == 255)
+							if (pix_hvs[i * width + j] == 255)
 							{
 								a0 = -1;
 								a1 = 0;
@@ -170,9 +188,9 @@ void DBS()
 						}
 						else
 						{
-							if (pix_hvs[(i + y) * bpl + (j + x)] != pix_hvs[i * bpl + j])
+							if (pix_hvs[(i + y) * width + (j + x)] != pix_hvs[i * width + j])
 							{
-								if (pix_hvs[i * bpl + j] == 255)
+								if (pix_hvs[i * width + j] == 255)
 								{
 									a0 = -1;
 									a1 = (-1) * a0;
@@ -191,8 +209,8 @@ void DBS()
 						}
 						eps = (a0 * a0 + a1 * a1) * CPP[halfcppsize][halfcppsize]
 							+ 2 * a0 * a1 * CPP[halfcppsize + y][halfcppsize + x]
-							+ 2 * a0 * CEP[(i + halfcppsize) * (bpl + halfcppsize * 2) + (j + halfcppsize)]
-							+ 2 * a1 * CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)];
+							+ 2 * a0 * CEP[(i + halfcppsize) * (width + halfcppsize * 2) + (j + halfcppsize)]
+							+ 2 * a1 * CEP[(i + y + halfcppsize) * (width + halfcppsize * 2) + (j + x + halfcppsize)];
 						if (eps_min > eps)
 						{
 							eps_min = eps;
@@ -209,12 +227,12 @@ void DBS()
 					{
 						for (int x = (-1) * halfcppsize; x <= halfcppsize; x++)
 						{
-							CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)] += (double)a0c * CPP[y + halfcppsize][x + halfcppsize];
-							CEP[(i + y + cpy + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += (double)a1c * CPP[y + halfcppsize][x + halfcppsize];
+							CEP[(i + y + halfcppsize) * (width + halfcppsize * 2) + (j + x + halfcppsize)] += (double)a0c * CPP[y + halfcppsize][x + halfcppsize];
+							CEP[(i + y + cpy + halfcppsize) * (width + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += (double)a1c * CPP[y + halfcppsize][x + halfcppsize];
 						}
 					}
-					pix_hvs[i * bpl + j] += a0c * 255;
-					pix_hvs[(cpy + i) * bpl + (j + cpx)] += a1c * 255;
+					pix_hvs[i * width + j] += a0c * 255;
+					pix_hvs[(cpy + i) * width + (j + cpx)] += a1c * 255;
 					count++;
 				}
 			}
@@ -227,7 +245,7 @@ void DBS()
 // 가우시안 필터 생성
 void GaussianFilter()
 {
-	double d = /*(fs - 1) / 6*/ 1.2;			// sigma = 1.2
+	double d = /*(fs - 1) / 6;*/ 1.2;			// sigma = 1.2
 	double c;
 	int gaulen = (fs - 1) / 2;
 
@@ -275,23 +293,23 @@ void CONV()
 void XCORR()
 {
 	double sum = 0;
-	for (int y = (-1) * halfcppsize * 2; y < bph; y++)
+	for (int y = (-1) * halfcppsize * 2; y < height; y++)
 	{
-		for (int x = (-1) * halfcppsize * 2; x < bpl; x++)
+		for (int x = (-1) * halfcppsize * 2; x < width; x++)
 		{
 			sum = 0;
 			for (int i = y; i <= y + halfcppsize * 2; i++)
 			{
 				for (int j = x; j <= x + halfcppsize * 2; j++)
 				{
-					if ((i >= 0 && j >= 0) && (i < bph && j < bpl))
+					if ((i >= 0 && j >= 0) && (i < height && j < width))
 					{
 						// err * CPP
-						sum += (double)CPP[i - y][j - x] * ((double)pix_hvs[i * bpl + j] / 255 - (double)pix[i * bpl + j] / 255);
+						sum += (double)CPP[i - y][j - x] * ((double)pix_hvs[i * width + j] / 255 - (double)pix[i * width + j] / 255);
 					}
 				}
 			}
-			CEP[(y + halfcppsize * 2) * (bpl + halfcppsize * 2) + (x + halfcppsize * 2)] = (double)sum;
+			CEP[(y + halfcppsize * 2) * (width + halfcppsize * 2) + (x + halfcppsize * 2)] = (double)sum;
 		}
 	}
 }
@@ -318,14 +336,14 @@ void Halftone()
 	// 정규분포 난수로 하프톤이미지 생성
 	srand(time(NULL));
 	double tmp;
-	for (int y = 1; y < bph - 1; y++)
+	for (int y = 1; y < height; y++)
 	{
-		for (int x = 1; x < bpl - 1; x++)
+		for (int x = 1; x < width; x++)
 		{
 			tmp = (double)GaussianRandom(1.0, 0);
 			if (tmp > 0)
 			{
-				pix_hvs[y * bpl + x] = 255;
+				pix_hvs[y * width + x] = 255;
 			}
 		}
 	}
@@ -337,6 +355,10 @@ void FwriteCPU(char * fn)
 	fwrite(&bfh, sizeof(bfh), 1, fp2);
 	fwrite(&bih, sizeof(bih), 1, fp2);
 	fwrite(rgb, sizeof(RGBQUAD), 256, fp2);
-	fwrite(pix_hvs, sizeof(unsigned char), bpl * bph, fp2);
+	for (int i = 0; i < height; i++)
+	{
+		fwrite(pix_hvs + (i * width), sizeof(unsigned char), width, fp2);
+		fwrite(&trash, sizeof(unsigned char), pad, fp2);
+	}
 	fclose(fp2);
 }
