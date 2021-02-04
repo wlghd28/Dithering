@@ -21,15 +21,18 @@ BITMAPINFOHEADER bih;
 RGBQUAD * rgb;
 
 // 이미지 정보를 다루기 위해 사용하는 변수
-int bpl, bph;
+int bpl, pad;
+int width, height;
+long pix_size;
 unsigned char* pix; // 원본 이미지
 //unsigned char* pix_ms; // 가우시안 필터링을 한 이미지
 unsigned char* pix_hvs; // 하프톤 이미지
 unsigned char* pix_check; // 값이 결정된 픽셀인지 아닌지 판단
+unsigned char trash[3] = { 0 }; // 쓰레기 값
 //double* err;
-int * pixE;
+//int * pixE;
 
-double T[512][512];
+double T[64][64];
 int ts = 256;	// threshold array size
 int D = 6;
 
@@ -67,8 +70,9 @@ void Fwrite(char *);		// 연산된 픽셀값을 bmp파일로 저장하는 함수
 int main(void)
 {
 	FILE * fp;
+	fp = fopen("input.bmp", "rb");
 	//fp = fopen("../Images/newEDIMAGE.bmp", "rb");
-	fp = fopen("../Images/newEDIMAGE2.bmp", "rb");
+	//fp = fopen("../Images/newEDIMAGE2.bmp", "rb");
 	//fp = fopen("../Images/test.bmp", "rb");
 	//fp = fopen("../Images/bird2_720_C.bmp", "rb");
 
@@ -82,25 +86,30 @@ int main(void)
 
 	// BPL을 맞춰주기 위해서 픽셀데이터의 사이즈를 4의 배수로 조정
 	bpl = (bih.biWidth + 3) / 4 * 4;
-	bph = (bih.biHeight + 3) / 4 * 4;
-	printf("%d %d\n", bpl, bph);
+	width = bih.biWidth;
+	height = bih.biHeight;
+	pix_size = width * height;
+	pad = bpl - width;
+	printf("width : %d , height : %d\n", width, height);
+	printf("image size : %d X %d\n", width, height);
 
-	pix = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
-	fread(pix, sizeof(unsigned char), bpl * bph, fp);
+	pix = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
+
+	for (int i = 0; i < height; i++)
+	{
+		fread(pix + (i * width), sizeof(unsigned char), width, fp);
+		fread(&trash, sizeof(unsigned char), pad, fp);
+	}
 
 	//pix_ms = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
 	//memcpy(pix_ms, pix, sizeof(unsigned char) * bpl * bph);
 
-	pix_hvs = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
+	pix_hvs = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
 	//memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
-
-	pix_check = (unsigned char *)calloc(bpl * bph, sizeof(unsigned char));
-
+	pix_check = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
 	//err = (double *)calloc(bpl * bph, sizeof(double));
-
-	CEP = (double *)calloc((bpl + halfcppsize * 2) * (bph + halfcppsize * 2), sizeof(double));
-
-	printf("%d %d %d \n", _msize(CEP), _msize(pix), _msize(pix_hvs));
+	CEP = (double *)calloc((width + halfcppsize * 2) * (height + halfcppsize * 2), sizeof(double));
+	printf("Memory of CEP : %dbyte, pix : %dbyte, pix_hvs : %dbyte \n", _msize(CEP), _msize(pix), _msize(pix_hvs));
 
 	//pixE = (int *)calloc(bpl * bph, sizeof(int));
 
@@ -115,7 +124,7 @@ int main(void)
 
 	total_Time_CPU = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
-	Dither();
+	//Dither();
 	// Direct Binary Search 디더링
 	DBS();
 	QueryPerformanceCounter(&tot_endClock);
@@ -125,9 +134,10 @@ int main(void)
 	//system("pause");
 
 	//sprintf(str, "../Images/new_DBS_Dither.bmp");
-	sprintf(str, "../Images/new_DBS_Dither2.bmp");
+	//sprintf(str, "../Images/new_DBS_Dither2.bmp");
 	//sprintf(str, "../Images/test_DBS_Dither.bmp");
 	//sprintf(str, "../Images/bird2_DBS_Dither_720_C.bmp");
+	sprintf(str, "output.bmp");
 
 	Fwrite(str);
 
@@ -185,11 +195,11 @@ void DBS()
 		cpx = 0;
 		cpy = 0;
 
-		for (int i = 1; i < bph - 1; i++)
+		for (int i = 1; i < height - 1; i++)
 		{
-			for (int j = 1; j < bpl - 1; j++)
+			for (int j = 1; j < width - 1; j++)
 			{
-				if (pix_check[i * bpl + j] == 0)
+				if (pix_check[i * width + j] == 0)
 				{
 					a0c = 0;
 					a1c = 0;
@@ -206,7 +216,7 @@ void DBS()
 								//continue;
 							if (y == 0 && x == 0)
 							{
-								if (pix_hvs[i * bpl + j] == 255)
+								if (pix_hvs[i * width + j] == 255)
 								{
 									a0 = -1;
 									a1 = 0;
@@ -219,9 +229,9 @@ void DBS()
 							}
 							else
 							{
-								if (pix_hvs[(i + y) * bpl + (j + x)] != pix_hvs[i * bpl + j])
+								if (pix_hvs[(i + y) * width + (j + x)] != pix_hvs[i * width + j])
 								{
-									if (pix_hvs[i * bpl + j] == 255)
+									if (pix_hvs[i * width + j] == 255)
 									{
 										a0 = -1;
 										a1 = (-1) * a0;
@@ -240,8 +250,8 @@ void DBS()
 							}
 							eps = (a0 * a0 + a1 * a1) * CPP[halfcppsize][halfcppsize]
 								+ 2 * a0 * a1 * CPP[halfcppsize + y][halfcppsize + x]
-								+ 2 * a0 * CEP[(i + halfcppsize) * (bpl + halfcppsize * 2) + (j + halfcppsize)]
-								+ 2 * a1 * CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)];
+								+ 2 * a0 * CEP[(i + halfcppsize) * (width + halfcppsize * 2) + (j + halfcppsize)]
+								+ 2 * a1 * CEP[(i + y + halfcppsize) * (width + halfcppsize * 2) + (j + x + halfcppsize)];
 							if (eps_min > eps)
 							{
 								eps_min = eps;
@@ -258,14 +268,14 @@ void DBS()
 						{
 							for (int x = (-1) * halfcppsize; x <= halfcppsize; x++)
 							{
-								CEP[(i + y + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + halfcppsize)] += (double)a0c * CPP[y + halfcppsize][x + halfcppsize];
-								CEP[(i + y + cpy + halfcppsize) * (bpl + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += (double)a1c * CPP[y + halfcppsize][x + halfcppsize];
+								CEP[(i + y + halfcppsize) * (width + halfcppsize * 2) + (j + x + halfcppsize)] += (double)a0c * CPP[y + halfcppsize][x + halfcppsize];
+								CEP[(i + y + cpy + halfcppsize) * (width + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += (double)a1c * CPP[y + halfcppsize][x + halfcppsize];
 							}
 						}
-						//pix_hvs[i * bpl + j] = (unsigned char)((pix_hvs[i * bpl + j] / 255 + a0c) % 2) * 255;
-						//pix_hvs[(cpy + i) * bpl + (j + cpx)] = (unsigned char)((pix_hvs[(cpy + i) * bpl + (j + cpx)] / 255 + a1c) % 2) * 255;
-						pix_hvs[i * bpl + j] += (unsigned char)a0c * 255;
-						pix_hvs[(cpy + i) * bpl + (j + cpx)] += (unsigned char)a1c * 255;
+						//pix_hvs[i * width + j] = (unsigned char)((pix_hvs[i * width + j] / 255 + a0c) % 2) * 255;
+						//pix_hvs[(cpy + i) * width + (j + cpx)] = (unsigned char)((pix_hvs[(cpy + i) * width + (j + cpx)] / 255 + a1c) % 2) * 255;
+						pix_hvs[i * width + j] += (unsigned char)a0c * 255;
+						pix_hvs[(cpy + i) * width + (j + cpx)] += (unsigned char)a1c * 255;
 						count++;
 					}
 				}
@@ -279,7 +289,7 @@ void DBS()
 // 가우시안 필터 생성
 void GaussianFilter()
 {
-	double sum = 0;
+	//double sum = 0;
 	double d = /*(fs - 1) / 6*/ 1.2;		// sigma
 	double c;
 	int gaulen = (fs - 1) / 2;
@@ -332,23 +342,23 @@ void CONV()
 void XCORR()
 {
 	double sum = 0;
-	for (int y = (-1) * halfcppsize * 2; y < bph; y++)
+	for (int y = (-1) * halfcppsize * 2; y < height; y++)
 	{
-		for (int x = (-1) * halfcppsize * 2; x < bpl; x++)
+		for (int x = (-1) * halfcppsize * 2; x < width; x++)
 		{
 			sum = 0;
 			for (int i = y; i <= y + halfcppsize * 2; i++)
 			{
 				for (int j = x; j <= x + halfcppsize * 2; j++)
 				{
-					if ((i >= 0 && j >= 0) && (i < bph && j < bpl))
+					if ((i >= 0 && j >= 0) && (i < height && j < width))
 					{
 						// err * CPP
-						sum += (double)CPP[i - y][j - x] * ((double)pix_hvs[i * bpl + j] / 255 - (double)pix[i * bpl + j] / 255);
+						sum += (double)CPP[i - y][j - x] * ((double)pix_hvs[i * width + j] / 255 - (double)pix[i * width + j] / 255);
 					}
 				}
 			}
-			CEP[(y + halfcppsize * 2) * (bpl + halfcppsize * 2) + (x + halfcppsize * 2)] = (double)sum;
+			CEP[(y + halfcppsize * 2) * (width + halfcppsize * 2) + (x + halfcppsize * 2)] = (double)sum;
 		}
 	}
 }
@@ -623,16 +633,16 @@ void Halftone()
 	srand(time(NULL));
 	double tmp;
 
-	for (int y = 1; y < bph - 1; y++)
+	for (int y = 1; y < height; y++)
 	{
-		for (int x = 1; x < bpl - 1; x++)
+		for (int x = 1; x < width; x++)
 		{
 			tmp = (double)GaussianRandom(1.0, 0);
 			//printf("%lf\n", tmp);
-			if (tmp > 0.5)
+			if (tmp > 0)
 			{
-				if (pix_check[y * bpl + x] == 0)
-					pix_hvs[y * bpl + x] = 255;
+				//if (pix_check[y * width + x] == 0)
+					pix_hvs[y * width + x] = 255;
 			}
 		}
 	}
@@ -661,26 +671,26 @@ void Dither()
 
 	Threshold(ts);	// Threshold array 생성
 
-	for (int y = 1; y < bph - 1; y++)
+	for (int y = 1; y < height - 1; y++)
 	{
-		for (int x = 1; x < bpl - 1; x++)
+		for (int x = 1; x < width - 1; x++)
 		{
-			if (pix[y * bpl + x] < D)
+			if (pix[y * width + x] < D)
 			{
 				//pix_hvs[y * bpl + x] = pix[y * bpl + x];
-				if (pix[y * bpl + x] > T[y % ts][x % ts])
+				if (pix[y * width + x] > T[y % ts][x % ts])
 				{
-					pix_hvs[y * bpl + x] = 255;
-					pix_check[y * bpl + x] = 1;
+					pix_hvs[y * width + x] = 255;
+					pix_check[y * width + x] = 1;
 				}
 			}
-			else if (pix[y * bpl + x] > 255 - D)
+			else if (pix[y * width + x] > 255 - D)
 			{
 				//pix_hvs[y * bpl + x] = pix[y * bpl + x];
-				if (pix[y * bpl + x] < 255 - T[y % ts][x % ts])
+				if (pix[y * width + x] < 255 - T[y % ts][x % ts])
 				{
-					pix_hvs[y * bpl + x] = 0;
-					pix_check[y * bpl + x] = 1;
+					pix_hvs[y * width + x] = 0;
+					pix_check[y * width + x] = 1;
 				}
 				else
 				{
@@ -695,34 +705,34 @@ void Dither()
 	/*
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
-	for (int y = 1; y < bph - 1; y++)
+	for (int y = 1; y < height - 1; y++)
 	{
 		if (y % 2 == 1)
 		{
-			for (int x = 1; x < bpl - 1; x++)
+			for (int x = 1; x < width - 1; x++)
 			{
-				pixE[y * bpl + x] += pix_hvs[y * bpl + x];
-				pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
-				quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
+				pixE[y * width + x] += pix_hvs[y * width + x];
+				pix_hvs[y * width + x] = pixE[y * width + x] / 128 * 255;
+				quant_error = pixE[y * width + x] - pix_hvs[y * width + x];
 
-				pixE[y * bpl + x + 1] += quant_error * 7 / 16;
-				pixE[(y + 1) * bpl + x - 1] += quant_error * 3 / 16;
-				pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
-				pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
+				pixE[y * width + x + 1] += quant_error * 7 / 16;
+				pixE[(y + 1) * width + x - 1] += quant_error * 3 / 16;
+				pixE[(y + 1) * width + x] += quant_error * 5 / 16;
+				pixE[(y + 1) * width + x + 1] += quant_error * 1 / 16;
 			}
 		}
 		else
 		{
-			for (int x = bpl - 2; x >= 1; x--)
+			for (int x = width - 2; x >= 1; x--)
 			{
-				pixE[y * bpl + x] += pix_hvs[y * bpl + x];
-				pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
-				quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
+				pixE[y * width + x] += pix_hvs[y * width + x];
+				pix_hvs[y * width + x] = pixE[y * width + x] / 128 * 255;
+				quant_error = pixE[y * width + x] - pix_hvs[y * width + x];
 
-				pixE[y * bpl + x - 1] += quant_error * 7 / 16;
-				pixE[(y + 1) * bpl + x + 1] += quant_error * 3 / 16;
-				pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
-				pixE[(y + 1) * bpl + x - 1] += quant_error * 1 / 16;
+				pixE[y * width + x - 1] += quant_error * 7 / 16;
+				pixE[(y + 1) * width + x + 1] += quant_error * 3 / 16;
+				pixE[(y + 1) * width + x] += quant_error * 5 / 16;
+				pixE[(y + 1) * width + x - 1] += quant_error * 1 / 16;
 			}
 		}
 	}
@@ -731,19 +741,19 @@ void Dither()
 	/*
 	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
 
-	for (int y = 1; y < bph - 1; y++)
+	for (int y = 1; y < height - 1; y++)
 	{
-		for (int x = 1; x < bpl - 1; x++)
+		for (int x = 1; x < width - 1; x++)
 		{
 
-			pixE[y * bpl + x] += pix_hvs[y * bpl + x];
-			pix_hvs[y * bpl + x] = pixE[y * bpl + x] / 128 * 255;
-			quant_error = pixE[y * bpl + x] - pix_hvs[y * bpl + x];
+			pixE[y * width + x] += pix_hvs[y * width + x];
+			pix_hvs[y * width + x] = pixE[y * width + x] / 128 * 255;
+			quant_error = pixE[y * width + x] - pix_hvs[y * width + x];
 
-			pixE[y * bpl + x + 1] += quant_error * 7 / 16;
-			pixE[(y + 1) * bpl + x - 1] += quant_error * 3 / 16;
-			pixE[(y + 1) * bpl + x] += quant_error * 5 / 16;
-			pixE[(y + 1) * bpl + x + 1] += quant_error * 1 / 16;
+			pixE[y * width + x + 1] += quant_error * 7 / 16;
+			pixE[(y + 1) * width + x - 1] += quant_error * 3 / 16;
+			pixE[(y + 1) * width + x] += quant_error * 5 / 16;
+			pixE[(y + 1) * width + x + 1] += quant_error * 1 / 16;
 
 		}
 	}
@@ -759,13 +769,14 @@ void Fread(FILE *fp)
 }
 void Fwrite(char * fn)
 {
-	// 데이터 픽셀값을 bmp파일로 쓴다.
 	FILE * fp2 = fopen(fn, "wb");
 	fwrite(&bfh, sizeof(bfh), 1, fp2);
 	fwrite(&bih, sizeof(bih), 1, fp2);
 	fwrite(rgb, sizeof(RGBQUAD), 256, fp2);
-
-	fwrite(pix_hvs, sizeof(unsigned char), bpl * bph, fp2);
-	//fwrite(pixE, sizeof(int), bpl * bph, fp2);
+	for (int i = 0; i < height; i++)
+	{
+		fwrite(pix_hvs + (i * width), sizeof(unsigned char), width, fp2);
+		fwrite(&trash, sizeof(unsigned char), pad, fp2);
+	}
 	fclose(fp2);
 }
