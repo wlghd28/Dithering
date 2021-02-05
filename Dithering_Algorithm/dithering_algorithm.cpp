@@ -12,9 +12,9 @@
 
 #pragma warning(disable : 4996)
 // 시간을 계산하기 위한 변수
-//double total_Time_GPU, total_Time_CPU, tmp_time;
-//LARGE_INTEGER beginClock, endClock, clockFreq;
-//LARGE_INTEGER tot_beginClock, tot_endClock, tot_clockFreq;
+double total_Time;
+LARGE_INTEGER beginClock, endClock, clockFreq;
+LARGE_INTEGER tot_beginClock, tot_endClock, tot_clockFreq;
 
 // 비트맵 이미지 정보를 받아오기 위한 구조체 변수
 BITMAPFILEHEADER bfh;
@@ -30,7 +30,7 @@ unsigned char* pix; // 원본 이미지
 unsigned char* pix_h; // 하프톤 이미지
 
 void Fread();	// bmp 파일 읽기
-void Fwrite();	// bmp 파일 쓰기
+void Fwrite(const char* fn);	// bmp 파일 쓰기
 
 void Floyd_Steinberg();
 void Ordered();
@@ -39,11 +39,31 @@ void Direct_Binary_Search();
 
 int main(void)
 {
-	//Floyd_Steinberg();
+	QueryPerformanceFrequency(&tot_clockFreq);	// 시간을 측정하기위한 준비
 
-	//Ordered();
+	total_Time = 0;
+	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
+	Floyd_Steinberg();
+	QueryPerformanceCounter(&tot_endClock);
+	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
+	printf("Total processing Time_Floyd : %lf Sec\n", total_Time);
+	printf("\n");
 
-	//Direct_Binary_Search();
+	total_Time = 0;
+	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
+	Ordered();
+	QueryPerformanceCounter(&tot_endClock);
+	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
+	printf("Total processing Time_Ordered : %lf Sec\n", total_Time);
+	printf("\n");
+
+	total_Time = 0;
+	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
+	Direct_Binary_Search();
+	QueryPerformanceCounter(&tot_endClock);
+	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
+	printf("Total processing Time_DBS : %lf Sec\n", total_Time);
+	printf("\n");
 
 	return 0;
 }
@@ -81,9 +101,9 @@ void Fread()
 	}
 	fclose(fp);
 }
-void Fwrite()
+void Fwrite(const char* fn)
 {
-	FILE * fp = fopen("output.bmp", "wb");
+	FILE * fp = fopen(fn, "wb");
 	fwrite(&bfh, sizeof(bfh), 1, fp);
 	fwrite(&bih, sizeof(bih), 1, fp);
 	fwrite(rgb, sizeof(RGBQUAD), 256, fp);
@@ -156,7 +176,7 @@ void Floyd_Steinberg()
 		}
 	}
 	*/
-	Fwrite();
+	Fwrite("output_Floyd.bmp");
 
 	free(rgb);
 	free(pix);
@@ -214,7 +234,7 @@ void Ordered()
 		}
 	}
 
-	Fwrite();
+	Fwrite("output_Ordered.bmp");
 	free(rgb);
 	free(pix);
 	free(pix_h);
@@ -456,7 +476,7 @@ void Direct_Binary_Search()
 			break;
 	}
 
-	Fwrite();
+	Fwrite("output_DBS.bmp");
 	free(rgb);
 	free(pix);
 	free(pix_h);
