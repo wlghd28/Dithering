@@ -32,14 +32,24 @@ unsigned char* pix_h; // 하프톤 이미지
 void Fread();	// bmp 파일 읽기
 void Fwrite(const char* fn);	// bmp 파일 쓰기
 
-void Floyd_Steinberg();
-void Ordered();
-void Direct_Binary_Search();
+void Random();					// 난수 디더링
+void Floyd_Steinberg();			// 오차확산 디더링
+void Ordered();					// 순서 디더링
+void Blue_Noise_Mask();			// 블루 노이즈 마스크
+void Direct_Binary_Search();	// DBS
 
 
 int main(void)
 {
 	QueryPerformanceFrequency(&tot_clockFreq);	// 시간을 측정하기위한 준비
+
+	total_Time = 0;
+	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
+	Random();
+	QueryPerformanceCounter(&tot_endClock);
+	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
+	printf("Total processing Time_Random : %lf Sec\n", total_Time);
+	printf("\n");
 
 	total_Time = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
@@ -57,6 +67,16 @@ int main(void)
 	printf("Total processing Time_Ordered : %lf Sec\n", total_Time);
 	printf("\n");
 
+	/*
+	total_Time = 0;
+	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
+	Blue_Noise_Mask();
+	QueryPerformanceCounter(&tot_endClock);
+	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
+	printf("Total processing Time_Blue_Noise_Mask : %lf Sec\n", total_Time);
+	printf("\n");
+	*/
+
 	total_Time = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	Direct_Binary_Search();
@@ -65,6 +85,7 @@ int main(void)
 	printf("Total processing Time_DBS : %lf Sec\n", total_Time);
 	printf("\n");
 
+	system("pause");
 	return 0;
 }
 
@@ -113,6 +134,30 @@ void Fwrite(const char* fn)
 		fwrite(&trash, sizeof(unsigned char), pad, fp);
 	}
 	fclose(fp);
+}
+
+void Random()
+{
+	Fread();
+	pix_h = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
+	memcpy(pix_h, pix, sizeof(unsigned char) * pix_size);
+
+	srand(time(NULL));
+	for (int i = 0; i < height; i++)
+	{
+		for (int j = 0; j < width; j++)
+		{
+			if (pix[i * width + j] < (unsigned char)rand())
+				pix_h[i * width + j] = 0;
+			else
+				pix_h[i * width + j] = 255;
+		}
+	}
+	Fwrite("output_Random.bmp");
+
+	free(rgb);
+	free(pix);
+	free(pix_h);
 }
 
 void Floyd_Steinberg()
@@ -183,6 +228,7 @@ void Floyd_Steinberg()
 	free(pix_h);
 	free(pix_e);
 }
+
 void Ordered()
 {
 	Fread();
@@ -239,6 +285,12 @@ void Ordered()
 	free(pix);
 	free(pix_h);
 }
+
+void Blue_Noise_Mask()
+{
+
+}
+
 void Direct_Binary_Search()
 {
 	Fread();
@@ -308,7 +360,7 @@ void Direct_Binary_Search()
 
 	{	// 가우시안 필터
 		//double sum = 0;
-		double d = /*(fs - 1) / 6*/ 1.2;		// sigma
+		double d = /*(fs - 1) / 6;*/ 1.2;		// sigma
 		double c;
 		int gaulen = (fs - 1) / 2;
 
