@@ -35,8 +35,8 @@ void Fwrite(const char* fn);	// bmp 파일 쓰기
 void Random();					// 난수 디더링
 void Pattern();					// 패턴 디더링
 void Ordered();					// 순서 디더링 (패턴 디더링과 같은 알고리즘으로 구현, Bayer Matrix 사용)
-void Floyd_Steinberg();			// 오차확산 디더링
-void Blue_Noise_Mask();			// 블루 노이즈 마스크
+void Floyd_Steinberg();			// 오차확산 디더링 (Error Diffusion Dithering)
+void Blue_Noise_Mask();			// BNM
 void Direct_Binary_Search();	// DBS
 
 
