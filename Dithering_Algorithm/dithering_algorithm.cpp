@@ -85,7 +85,6 @@ int main(void)
 	printf("Total processing Time_Siau_Fan : %lf Sec\n", total_Time);
 	printf("\n");
 
-	/*
 	total_Time = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	Blue_Noise_Mask();
@@ -93,7 +92,6 @@ int main(void)
 	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
 	printf("Total processing Time_Blue_Noise_Mask : %lf Sec\n", total_Time);
 	printf("\n");
-	*/
 
 	total_Time = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
@@ -409,7 +407,49 @@ void Siau_and_Fan()
 
 void Blue_Noise_Mask()
 {
+	Fread();
+	BITMAPFILEHEADER bfh_bnm;
+	BITMAPINFOHEADER bih_bnm;
+	RGBQUAD * rgb_bnm;
+	unsigned char pix_bnm[64][64];
+	int ms = 64;
 
+	pix_h = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
+	FILE* fp;
+	fp = fopen("BNM_64.bmp", "rb");
+	if (fp == NULL)
+	{
+		printf("Maskfile Not Found!!\n");
+		system("pause");
+		exit(0);
+	}
+	fread(&bfh_bnm, sizeof(bfh), 1, fp);
+	fread(&bih_bnm, sizeof(bih), 1, fp);
+	rgb_bnm = (RGBQUAD*)malloc(sizeof(RGBQUAD) * 256);
+	fread(rgb, sizeof(RGBQUAD), 256, fp);
+
+	for (int i = 0; i < ms; i++)
+	{
+		fread(pix_bnm[i], sizeof(unsigned char), ms, fp);
+	}
+	fclose(fp);
+
+	for (int y = 0; y < height; y++)
+	{
+		for (int x = 0; x < width; x++)
+		{
+			if (pix[y * width + x] >= pix_bnm[y % ms][x % ms] && pix[y * width + x] != 0)
+			{
+				pix_h[y * width + x] = 255;
+			}
+		}
+	}
+
+	Fwrite("output_BNM.bmp");
+	free(rgb);
+	free(rgb_bnm);
+	free(pix);
+	free(pix_h);
 }
 
 void Direct_Binary_Search()
