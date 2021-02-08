@@ -93,6 +93,7 @@ int main(void)
 	printf("Total processing Time_Blue_Noise_Mask : %lf Sec\n", total_Time);
 	printf("\n");
 
+	/*
 	total_Time = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	Direct_Binary_Search();
@@ -100,7 +101,7 @@ int main(void)
 	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
 	printf("Total processing Time_DBS : %lf Sec\n", total_Time);
 	printf("\n");
-
+	*/
 	system("pause");
 	return 0;
 }
@@ -411,12 +412,12 @@ void Blue_Noise_Mask()
 	BITMAPFILEHEADER bfh_bnm;
 	BITMAPINFOHEADER bih_bnm;
 	RGBQUAD * rgb_bnm;
-	unsigned char pix_bnm[64][64];
-	int ms = 64;
+	unsigned char pix_bnm[256][256];
+	int ms = 256;
 
 	pix_h = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
 	FILE* fp;
-	fp = fopen("BNM_64.bmp", "rb");
+	fp = fopen("BNM_256.bmp", "rb");
 	if (fp == NULL)
 	{
 		printf("Maskfile Not Found!!\n");
