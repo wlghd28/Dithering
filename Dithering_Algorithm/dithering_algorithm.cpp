@@ -39,6 +39,7 @@ void Floyd_Steinberg();			// 오차확산 디더링 (Error Diffusion Dithering)
 void Siau_and_Fan();			// 오차확산 디더링 (Error Diffusion Dithering)
 void Blue_Noise_Mask();			// BNM
 void Direct_Binary_Search();	// DBS
+void Cliiping_Free_DBS();		// Clipping Free DBS 
 
 
 int main(void)
@@ -99,6 +100,14 @@ int main(void)
 	QueryPerformanceCounter(&tot_endClock);
 	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
 	printf("Total processing Time_DBS : %lf Sec\n", total_Time);
+	printf("\n");
+
+	total_Time = 0;
+	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
+	Cliiping_Free_DBS();
+	QueryPerformanceCounter(&tot_endClock);
+	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
+	printf("Total processing Time_Clipping_Free_DBS : %lf Sec\n", total_Time);
 	printf("\n");
 
 	system("pause");
@@ -521,7 +530,7 @@ void Direct_Binary_Search()
 
 	{	// 가우시안 필터
 		//double sum = 0;
-		double d = /*(fs - 1) / 6;*/ 1.2;		// sigma
+		double d = (fs - 1) / 6; /*1.2;*/		// sigma
 		double c;
 		int gaulen = (fs - 1) / 2;
 
@@ -693,5 +702,295 @@ void Direct_Binary_Search()
 	free(rgb);
 	free(pix);
 	free(pix_h);
+	free(CEP);
+}
+
+void Cliiping_Free_DBS()
+{
+	Fread();
+	double G[7][7];
+	int fs = 7;	// 가우시안 필터 사이즈
+	double CPP[13][13];	// 컨볼루션 매트릭스
+	int halfcppsize = 6;
+
+	/*
+	double G[11][11];
+	int fs = 11;	// 가우시안 필터 사이즈
+	double CPP[21][21];
+	int halfcppsize = 10;
+	*/
+	int D = 12;
+	double* CEP;
+	double pi = 3.14159265358979323846264338327950288419716939937510;
+	
+	int count = 0;			// 최소제곱오차 값이 0이 아닐때까지 반복문을 돌리기위한 카운트 변수
+	double eps = 0.0;
+	double eps_min = 0.0;
+	int a0 = 0;
+	int a1 = 0;
+	int a0c = 0;
+	int a1c = 0;
+	int cpx = 0;
+	int cpy = 0;
+
+	unsigned char* pix_check = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
+	pix_h = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
+	CEP = (double *)calloc((width + halfcppsize * 2) * (height + halfcppsize * 2), sizeof(double));
+
+	{	// Clipping 현상 제거
+		BITMAPFILEHEADER bfh_bnm;
+		BITMAPINFOHEADER bih_bnm;
+		RGBQUAD * rgb_bnm;
+		unsigned char pix_bnm[256][256];
+		int ms = 256;
+		FILE* fp_bnm;
+		fp_bnm = fopen("BNM_256.bmp", "rb");
+		if (fp_bnm == NULL)
+		{
+			printf("Maskfile Not Found!!\n");
+			system("pause");
+			exit(0);
+		}
+		fread(&bfh_bnm, sizeof(bfh), 1, fp_bnm);
+		fread(&bih_bnm, sizeof(bih), 1, fp_bnm);
+		rgb_bnm = (RGBQUAD*)malloc(sizeof(RGBQUAD) * 256);
+		fread(rgb, sizeof(RGBQUAD), 256, fp_bnm);
+
+		for (int i = 0; i < ms; i++)
+		{
+			fread(pix_bnm[i], sizeof(unsigned char), ms, fp_bnm);
+		}
+		fclose(fp_bnm);
+
+
+		// Ordered Dithering based BNM(Blue Noise Mask)
+		for (int i = 0; i < height; i++)
+		{
+			for (int j = 0; j < width; j++)
+			{
+				if (pix[i * width + j] < D || pix[i * width + j] > 255 - D)
+				{
+					pix_check[i * width + j] = 1;
+					if (pix[i * width + j] >= pix_bnm[i % ms][j % ms] && pix[i * width + j] != 0)
+						pix_h[i * width + j] = 255;
+				}
+			}
+		}
+	}
+
+	{	// 정규분포 난수로 하프톤 이미지 생성
+		double tmp = 0;
+		double v1, v2, s;
+		double stddev = 1.0;
+		double average = 0;
+
+		srand(time(NULL));
+
+		for (int y = 1; y < height; y++)
+		{
+			for (int x = 1; x < width; x++)
+			{
+				{	// 가우시안 랜덤 숫자 생성
+
+					do {
+						v1 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
+						v2 = 2 * ((double)rand() / RAND_MAX) - 1;      // -1.0 ~ 1.0 까지의 값
+						s = v1 * v1 + v2 * v2;
+					} while (s >= 1 || s == 0);
+
+					s = sqrt((-2 * log(s)) / s);
+
+					tmp = v1 * s;
+					tmp = (stddev * tmp) + average;
+
+				}
+				//printf("%lf\n", tmp);
+				if (tmp > 0)
+				{
+					if (pix_check[y * width + x] == 0)
+					pix_h[y * width + x] = 255;
+				}
+			}
+		}
+	}
+
+	{	// 가우시안 필터
+		//double sum = 0;
+		double d = (fs - 1) / 6; /*1.2;*/		// sigma
+		double c;
+		int gaulen = (fs - 1) / 2;
+
+		for (int k = (-1) * gaulen; k <= gaulen; k++)
+		{
+			for (int l = (-1) * gaulen; l <= gaulen; l++)
+			{
+				// 기존 가우시안 분포 공식	
+
+				c = (k * k + l * l) / (2 * d * d);
+				G[k + gaulen][l + gaulen] = exp((-1) * c) / (2 * pi * d * d);
+				//sum += G[k + gaulen][l + gaulen];		
+
+
+				// fs = 11 일때 결과가 가장 좋았음..
+				/*
+				c = (k * k + l * l) / (2 * d * d) + 1;
+				G[k + gaulen][l + gaulen] = 1 / c;
+				//sum += G[k + gaulen][l + gaulen];
+				*/
+			}
+		}
+		//printf("%lf\n", sum);
+	}
+
+	{	// 2차원 컨볼루션 연산
+		double sum = 0;
+		for (int y = (-1) * fs + 1; y < fs; y++)
+		{
+			for (int x = (-1) * fs + 1; x < fs; x++)
+			{
+				sum = 0;
+				for (int i = y; i < y + fs; i++)
+				{
+					for (int j = x; j < x + fs; j++)
+					{
+						if ((i >= 0 && j >= 0) && (i < fs && j < fs))
+						{
+							sum += (double)G[i - y][j - x] * G[i][j];
+						}
+					}
+				}
+				CPP[(y + fs - 1)][(x + fs - 1)] = (double)sum;
+			}
+		}
+	}
+
+	{	// 상호관계연산 행렬 생성 (CEP)
+		double sum = 0;
+		for (int y = (-1) * halfcppsize * 2; y < height; y++)
+		{
+			for (int x = (-1) * halfcppsize * 2; x < width; x++)
+			{
+				sum = 0;
+				for (int i = y; i <= y + halfcppsize * 2; i++)
+				{
+					for (int j = x; j <= x + halfcppsize * 2; j++)
+					{
+						if ((i >= 0 && j >= 0) && (i < height && j < width))
+						{
+							// err * CPP
+							sum += (double)CPP[i - y][j - x] * ((double)pix_h[i * width + j] / 255 - (double)pix[i * width + j] / 255);
+						}
+					}
+				}
+				CEP[(y + halfcppsize * 2) * (width + halfcppsize * 2) + (x + halfcppsize * 2)] = (double)sum;
+			}
+		}
+	}
+
+	// DBS 과정 시작..
+	while (1)
+	{
+		count = 0;
+		a0 = 0;
+		a1 = 0;
+		a0c = 0;
+		a1c = 0;
+		cpx = 0;
+		cpy = 0;
+
+		for (int i = 1; i < height - 1; i++)
+		{
+			for (int j = 1; j < width - 1; j++)
+			{
+				if (pix_check[i * width + j] == 0)
+				{
+					a0c = 0;
+					a1c = 0;
+					cpx = 0;
+					cpy = 0;
+					eps_min = 0;
+					for (int y = -1; y <= 1; y++)
+					{
+						//if (i + y < 0 || i + y >= height)
+							//continue;			
+						for (int x = -1; x <= 1; x++)
+						{
+							//if (j + x < 0 || j + x >= height)
+								//continue;
+							if (y == 0 && x == 0)
+							{
+								if (pix_h[i * width + j] == 255)
+								{
+									a0 = -1;
+									a1 = 0;
+								}
+								else
+								{
+									a0 = 1;
+									a1 = 0;
+								}
+							}
+							else
+							{
+								if (pix_h[(i + y) * width + (j + x)] != pix_h[i * width + j])
+								{
+									if (pix_h[i * width + j] == 255)
+									{
+										a0 = -1;
+										a1 = (-1) * a0;
+									}
+									else
+									{
+										a0 = 1;
+										a1 = (-1) * a0;
+									}
+								}
+								else
+								{
+									a0 = 0;
+									a1 = 0;
+								}
+							}
+							eps = (a0 * a0 + a1 * a1) * CPP[halfcppsize][halfcppsize]
+								+ 2 * a0 * a1 * CPP[halfcppsize + y][halfcppsize + x]
+								+ 2 * a0 * CEP[(i + halfcppsize) * (width + halfcppsize * 2) + (j + halfcppsize)]
+								+ 2 * a1 * CEP[(i + y + halfcppsize) * (width + halfcppsize * 2) + (j + x + halfcppsize)];
+							if (eps_min > eps)
+							{
+								eps_min = eps;
+								a0c = a0;
+								a1c = a1;
+								cpx = x;
+								cpy = y;
+							}
+						}
+					}
+					if (eps_min < 0.0)
+					{
+						for (int y = (-1) * halfcppsize; y <= halfcppsize; y++)
+						{
+							for (int x = (-1) * halfcppsize; x <= halfcppsize; x++)
+							{
+								CEP[(i + y + halfcppsize) * (width + halfcppsize * 2) + (j + x + halfcppsize)] += (double)a0c * CPP[y + halfcppsize][x + halfcppsize];
+								CEP[(i + y + cpy + halfcppsize) * (width + halfcppsize * 2) + (j + x + cpx + halfcppsize)] += (double)a1c * CPP[y + halfcppsize][x + halfcppsize];
+							}
+						}
+						pix_h[i * width + j] += a0c * 255;
+						pix_h[(cpy + i) * width + (j + cpx)] += a1c * 255;
+						count++;
+					}
+				}
+			}
+		}
+		//printf("%d\n", count);
+		if (count == 0)
+			break;
+	}
+
+	Fwrite("output_Clipping_Free_DBS.bmp");
+	free(rgb);
+	free(pix);
+	free(pix_h);
+	free(pix_check);
 	free(CEP);
 }
