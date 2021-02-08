@@ -36,6 +36,7 @@ void Random();					// 난수 디더링
 void Pattern();					// 패턴 디더링
 void Ordered();					// 순서 디더링 (패턴 디더링과 같은 알고리즘으로 구현, Bayer Matrix 사용)
 void Floyd_Steinberg();			// 오차확산 디더링 (Error Diffusion Dithering)
+void Siau_and_Fan();			// 오차확산 디더링 (Error Diffusion Dithering)
 void Blue_Noise_Mask();			// BNM
 void Direct_Binary_Search();	// DBS
 
@@ -76,6 +77,13 @@ int main(void)
 	printf("Total processing Time_Floyd : %lf Sec\n", total_Time);
 	printf("\n");
 
+	total_Time = 0;
+	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
+	Siau_and_Fan();
+	QueryPerformanceCounter(&tot_endClock);
+	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
+	printf("Total processing Time_Siau_Fan : %lf Sec\n", total_Time);
+	printf("\n");
 
 	/*
 	total_Time = 0;
@@ -270,7 +278,7 @@ void Floyd_Steinberg()
 	pix_e = (int *)calloc(pix_size, sizeof(int));
 
 	// Floyd Steinberg 양방향
-	for (int y = 1; y < height - 1; y++)
+	for (int y = 0; y < height - 1; y++)
 	{
 		if (y % 2 == 1)
 		{
@@ -303,14 +311,14 @@ void Floyd_Steinberg()
 	}
 	// Floyd Steinberg 단방향
 	/*
-	for (int y = 1; y < height - 1; y++)
+	for (int y = 0; y < height - 1; y++)
 	{
 		for (int x = 1; x < width - 1; x++)
 		{
 
 			pix_e[y * width + x] += pix_h[y * width + x];
 			pix_h[y * width + x] = pix_e[y * width + x] / 128 * 255;
-			quant_error = pixE[y * width + x] - pix_h[y * width + x];
+			quant_error = pix_e[y * width + x] - pix_h[y * width + x];
 
 			pix_e[y * width + x + 1] += quant_error * 7 / 16;
 			pix_e[(y + 1) * width + x - 1] += quant_error * 3 / 16;
@@ -321,6 +329,78 @@ void Floyd_Steinberg()
 	}
 	*/
 	Fwrite("output_Floyd.bmp");
+	free(rgb);
+	free(pix);
+	free(pix_h);
+	free(pix_e);
+}
+
+void Siau_and_Fan()
+{
+	Fread();
+	int* pix_e = 0;
+	int quant_error = 0;
+
+	pix_h = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
+	memcpy(pix_h, pix, sizeof(unsigned char) * pix_size);
+	pix_e = (int *)calloc(pix_size, sizeof(int));
+
+	// Floyd Steinberg 양방향
+	/*
+	for (int y = 0; y < height - 1; y++)
+	{
+		if (y % 2 == 1)
+		{
+			for (int x = 3; x < width - 1; x++)
+			{
+				pix_e[y * width + x] += pix_h[y * width + x];
+				pix_h[y * width + x] = pix_e[y * width + x] / 128 * 255;
+				quant_error = pix_e[y * width + x] - pix_h[y * width + x];
+
+				pix_e[y * width + x + 1] += quant_error * 8 / 16;
+				pix_e[(y + 1) * width + x - 3] += quant_error * 1 / 16;
+				pix_e[(y + 1) * width + x - 2] += quant_error * 1 / 16;
+				pix_e[(y + 1) * width + x - 1] += quant_error * 2 / 16;
+				pix_e[(y + 1) * width + x] += quant_error * 4 / 16;
+			}
+		}
+		else
+		{
+			for (int x = width - 4; x >= 1; x--)
+			{
+				pix_e[y * width + x] += pix_h[y * width + x];
+				pix_h[y * width + x] = pix_e[y * width + x] / 128 * 255;
+				quant_error = pix_e[y * width + x] - pix_h[y * width + x];
+
+				pix_e[y * width + x - 1] += quant_error * 8 / 16;
+				pix_e[(y + 1) * width + x + 3] += quant_error * 1 / 16;
+				pix_e[(y + 1) * width + x + 2] += quant_error * 1 / 16;
+				pix_e[(y + 1) * width + x + 1] += quant_error * 2 / 16;
+				pix_e[(y + 1) * width + x] += quant_error * 4 / 16;
+			}
+		}
+	}
+	*/
+	// Floyd Steinberg 단방향
+	
+	for (int y = 0; y < height - 1; y++)
+	{
+		for (int x = 3; x < width - 1; x++)
+		{
+
+			pix_e[y * width + x] += pix_h[y * width + x];
+			pix_h[y * width + x] = pix_e[y * width + x] / 128 * 255;
+			quant_error = pix_e[y * width + x] - pix_h[y * width + x];
+
+			pix_e[y * width + x + 1] += quant_error * 8 / 16;
+			pix_e[(y + 1) * width + x - 3] += quant_error * 1 / 16;
+			pix_e[(y + 1) * width + x - 2] += quant_error * 1 / 16;
+			pix_e[(y + 1) * width + x - 1] += quant_error * 2 / 16;
+			pix_e[(y + 1) * width + x] += quant_error * 4 / 16;
+		}
+	}
+	
+	Fwrite("output_Siau_Fan.bmp");
 	free(rgb);
 	free(pix);
 	free(pix_h);
