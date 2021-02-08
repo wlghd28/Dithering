@@ -32,11 +32,11 @@ unsigned char* pix_h; // 하프톤 이미지
 void Fread();	// bmp 파일 읽기
 void Fwrite(const char* fn);	// bmp 파일 쓰기
 
-void Random();					// 난수 디더링
+void Random();			// 난수 디더링
+void Ordered();			// 순서 디더링
 void Floyd_Steinberg();			// 오차확산 디더링
-void Ordered();					// 순서 디더링
 void Blue_Noise_Mask();			// 블루 노이즈 마스크
-void Direct_Binary_Search();	// DBS
+void Direct_Binary_Search();			// DBS
 
 
 int main(void)
@@ -53,19 +53,20 @@ int main(void)
 
 	total_Time = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
+	Ordered();
+	QueryPerformanceCounter(&tot_endClock);
+	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
+	printf("Total processing Time_Ordered : %lf Sec\n", total_Time);
+	printf("\n");
+
+	total_Time = 0;
+	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	Floyd_Steinberg();
 	QueryPerformanceCounter(&tot_endClock);
 	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
 	printf("Total processing Time_Floyd : %lf Sec\n", total_Time);
 	printf("\n");
 
-	total_Time = 0;
-	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
-	Ordered();
-	QueryPerformanceCounter(&tot_endClock);
-	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
-	printf("Total processing Time_Ordered : %lf Sec\n", total_Time);
-	printf("\n");
 
 	/*
 	total_Time = 0;
@@ -160,6 +161,63 @@ void Random()
 	free(pix_h);
 }
 
+void Ordered()
+{
+	Fread();
+	int ts = 64;
+	double T[64][64];
+	pix_h = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
+
+	int count = 2;
+	// 임계값 행렬 초기값 설정
+	T[0][0] = 0.0;
+	T[0][1] = 2.0;
+	T[1][0] = 3.0;
+	T[1][1] = 1.0;
+
+	while (count < ts)
+	{
+		for (int i = 0; i < count; i++)
+		{
+			for (int j = 0; j < count; j++)
+			{
+				T[i][j] *= 4;
+				T[i][j + count] = T[i][j] + 2;
+				T[i + count][j] = T[i][j] + 3;
+				T[i + count][j + count] = T[i][j] + 1;
+			}
+		}
+		count *= 2;
+	}
+
+	for (int i = 0; i < ts; i++)
+	{
+		for (int j = 0; j < ts; j++)
+		{
+			T[i][j] /= ts * ts;
+			//printf("%lf ", (double)T[i][j]);
+		}
+		//printf("\n");
+	}
+	// Ordered Dither
+	for (int y = 1; y < height - 1; y++)
+	{
+		for (int x = 1; x < width - 1; x++)
+		{
+			if (pix[y * width + x] > T[y % ts][x % ts] * 255)
+			{
+				pix_h[y * width + x] = 255;
+				//pix_check[y * bpl + x] = 1;
+			}
+		}
+	}
+
+	Fwrite("output_Ordered.bmp");
+	free(rgb);
+	free(pix);
+	free(pix_h);
+}
+
 void Floyd_Steinberg()
 {
 	Fread();
@@ -227,63 +285,6 @@ void Floyd_Steinberg()
 	free(pix);
 	free(pix_h);
 	free(pix_e);
-}
-
-void Ordered()
-{
-	Fread();
-	int ts = 64;
-	double T[64][64];
-	pix_h = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
-
-	int count = 2;
-	// 임계값 행렬 초기값 설정
-	T[0][0] = 0.0;
-	T[0][1] = 2.0;
-	T[1][0] = 3.0;
-	T[1][1] = 1.0;
-
-	while (count < ts)
-	{
-		for (int i = 0; i < count; i++)
-		{
-			for (int j = 0; j < count; j++)
-			{
-				T[i][j] *= 4;
-				T[i][j + count] = T[i][j] + 2;
-				T[i + count][j] = T[i][j] + 3;
-				T[i + count][j + count] = T[i][j] + 1;
-			}
-		}
-		count *= 2;
-	}
-
-	for (int i = 0; i < ts; i++)
-	{
-		for (int j = 0; j < ts; j++)
-		{
-			T[i][j] /= ts * ts;
-			//printf("%lf ", (double)T[i][j]);
-		}
-		//printf("\n");
-	}
-	// Ordered Dither
-	for (int y = 1; y < height - 1; y++)
-	{
-		for (int x = 1; x < width - 1; x++)
-		{
-			if (pix[y * width + x] > T[y % ts][x % ts] * 255)
-			{
-				pix_h[y * width + x] = 255;
-				//pix_check[y * bpl + x] = 1;
-			}
-		}
-	}
-
-	Fwrite("output_Ordered.bmp");
-	free(rgb);
-	free(pix);
-	free(pix_h);
 }
 
 void Blue_Noise_Mask()
