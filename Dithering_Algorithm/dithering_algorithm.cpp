@@ -39,7 +39,7 @@ void Floyd_Steinberg();			// 오차확산 디더링 (Error Diffusion Dithering)
 void Siau_and_Fan();			// 오차확산 디더링 (Error Diffusion Dithering)
 void Blue_Noise_Mask();			// BNM
 void Direct_Binary_Search();	// DBS
-void Cliiping_Free_DBS();		// Clipping Free DBS 
+void Clipping_Free_DBS();		// Clipping Free DBS 
 
 
 int main(void)
@@ -104,7 +104,7 @@ int main(void)
 
 	total_Time = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
-	Cliiping_Free_DBS();
+	Clipping_Free_DBS();
 	QueryPerformanceCounter(&tot_endClock);
 	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
 	printf("Total processing Time_Clipping_Free_DBS : %lf Sec\n", total_Time);
@@ -705,7 +705,7 @@ void Direct_Binary_Search()
 	free(CEP);
 }
 
-void Cliiping_Free_DBS()
+void Clipping_Free_DBS()
 {
 	Fread();
 	double G[7][7];
