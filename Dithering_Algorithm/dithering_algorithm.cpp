@@ -345,7 +345,7 @@ void Siau_and_Fan()
 	memcpy(pix_h, pix, sizeof(unsigned char) * pix_size);
 	pix_e = (int *)calloc(pix_size, sizeof(int));
 
-	// Floyd Steinberg 양방향
+	// Siau_and_Fan 양방향
 	/*
 	for (int y = 0; y < height - 1; y++)
 	{
@@ -381,7 +381,7 @@ void Siau_and_Fan()
 		}
 	}
 	*/
-	// Floyd Steinberg 단방향
+	// Siau_and_Fan 단방향
 	
 	for (int y = 0; y < height - 1; y++)
 	{
