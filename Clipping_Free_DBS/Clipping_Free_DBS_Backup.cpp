@@ -27,12 +27,15 @@ long pix_size;
 unsigned char* pix; // 원본 이미지
 //unsigned char* pix_ms; // 가우시안 필터링을 한 이미지
 unsigned char* pix_hvs; // 하프톤 이미지
-unsigned char* pix_check;
+unsigned char* pix_check; // 값이 결정된 픽셀인지 아닌지 판단
 unsigned char trash[3] = { 0 }; // 쓰레기 값
 //double* err;
 //int * pixE;
 
-int D = 12;
+double T[64][64];
+int ts = 256;	// threshold array size
+int D = 6;
+
 double pi = 3.14159265358979323846264338327950288419716939937510;
 
 double G[7][7];
@@ -56,6 +59,9 @@ void GaussianFilter();		// 가우시안 필터 생성
 double GaussianRandom(double stddev, double average);		// 정규분포 난수 생성
 void CONV();	// 2차원 컨볼루션 연산
 void XCORR();	// 상호상관관계 연산
+void Threshold(int n);
+void BayerMatrix(int n);		// 정렬 디더링 할 때 쓸 임계값 행렬 생성
+double Uniformity();			// 임계값 행렬의 균일성을 구하는 함수
 void Halftone();				// 초기 하프톤 이미지 생성
 void Dither();				// 디더링 작업
 void Fread(FILE *fp);				// 파일포인터에 있는 파일을 읽는 함수
@@ -101,9 +107,11 @@ int main(void)
 	pix_hvs = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
 	//memcpy(pix_hvs, pix, sizeof(unsigned char) * bpl * bph);
 	pix_check = (unsigned char *)calloc(pix_size, sizeof(unsigned char));
-
+	//err = (double *)calloc(bpl * bph, sizeof(double));
 	CEP = (double *)calloc((width + halfcppsize * 2) * (height + halfcppsize * 2), sizeof(double));
 	printf("Memory of CEP : %dbyte, pix : %dbyte, pix_hvs : %dbyte \n", _msize(CEP), _msize(pix), _msize(pix_hvs));
+
+	//pixE = (int *)calloc(bpl * bph, sizeof(int));
 
 	// Memory allocation 예외 처리
 	if (CEP == NULL || pix == NULL || pix_hvs == NULL || rgb == NULL)
@@ -116,6 +124,7 @@ int main(void)
 
 	total_Time_CPU = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
+	//Dither();
 	// Direct Binary Search 디더링
 	DBS();
 	QueryPerformanceCounter(&tot_endClock);
@@ -137,10 +146,11 @@ int main(void)
 	//free(pix_ms);
 	free(pix_hvs);
 	free(pix_check);
+	//free(err);
 	free(CEP);
+	//free(pixE);
 	fclose(fp);
 
-	system("pause");
 	return 0;
 }
 
@@ -156,14 +166,22 @@ void DBS()
 	int cpx = 0;
 	int cpy = 0;
 
-	Dither();				// Clipping 현상 제거
 
+	//Dither();
 	Halftone();				// 초기 하프톤이미지 생성
 
 	GaussianFilter();		// 가우시안 필터 생성
 
 	CONV();		// 2차원 컨볼루션 연산 행렬 생성 (CPP)
-
+	/*
+	for (int y = 0; y < bph; y++)
+	{
+		for (int x = 0; x < bpl; x++)
+		{
+			err[y * bpl + x] = (double)pix_hvs[y * bpl + x] / 255 - (double)pix[y * bpl + x] / 255;
+		}
+	}
+	*/
 	XCORR();	// 상호관계연산 행렬 생성 (CEP)
 
 	// DBS 과정 시작..
@@ -272,7 +290,7 @@ void DBS()
 void GaussianFilter()
 {
 	//double sum = 0;
-	double d = (fs - 1) / 6 /*1.2*/;		// sigma
+	double d = /*(fs - 1) / 6*/ 1.2;		// sigma
 	double c;
 	int gaulen = (fs - 1) / 2;
 
@@ -344,8 +362,241 @@ void XCORR()
 		}
 	}
 }
+// DBS 기반으로 만들어진 임계값 행렬 구현중...
+void Threshold(int n)
+{
+	// 초기 임계값 행렬에 0 값을 할당
 
+	for (int i = 0; i < n; i++)
+	{
+		for (int j = 0; j < n; j++)
+		{
+			//T[i][j] = (i * n + j) % (D + 1);
+			T[i][j] = rand() % (D + 1);
+			//T[i][j] = 0;
+		}
+	}
+
+	// DBS 기반 스와핑을 통해 균일성이 최대가 되도록 알고리즘 적용
+	//int count = 0;	
+	int value = 0;
+	double uT = 0;
+	double uT_max = 0;
+	double tmp = 0;
+	int tmp_i = 0;
+	int tmp_j = 0;
+
+	// Swapping 과정 시작.
+	while (value <= D)
+	{
+		//count = 0;
+		uT_max = 0;
+		//uT = Uniformity();
+
+		for (int i = 0; i < ts; i++)
+		{
+			for (int j = 0; j < ts; j++)
+			{
+				tmp_i = 0;
+				tmp_j = 0;
+				//printf("%lf\n", uT);
+				if (T[i][j] == value)
+				{
+					for (int y = -1; y <= 1; y++)
+					{
+						if (i + y < 0 || i + y >= ts)
+							continue;
+						for (int x = -1; x <= 1; x++)
+						{
+							if (j + x < 0 || j + x >= ts)
+								continue;
+							//swapping...
+							if (!(x == 0 && y == 0))
+							{
+								tmp = T[i + y][j + x];
+								T[i + y][j + x] = T[i][j];
+								T[i][j] = tmp;
+
+								uT = Uniformity();
+
+								if (uT_max < uT)
+								{
+									uT_max = uT;
+									tmp_j = x;
+									tmp_i = y;
+									//count++;
+								}
+
+								tmp = T[i + y][j + x];
+								T[i + y][j + x] = T[i][j];
+								T[i][j] = tmp;
+							}
+						}
+					}
+					tmp = T[i][j];
+					T[i][j] = T[i + tmp_i][j + tmp_j];
+					T[i + tmp_i][j + tmp_j] = tmp;
+				}
+			}
+			//printf("test2\n");
+		}
+		value++;
+		//printf("Threshold count : %d\n", count);
+		//if (count == 0)
+			//break;
+	}
+	/*
+	for (int i = 0; i < n; i++)
+	{
+		for (int j = 0; j < n; j++)
+		{
+			printf("%lf ", T[i][j]);
+		}
+		printf("\n");
+	}
+	*/
+}
+// 균일성 값 리턴
+double Uniformity()
+{
+	double distance = 0;
+	double sum = 0;
+	double min;
+	for (int i = 0; i < ts; i++)
+	{
+		for (int j = 0; j < ts; j++)
+		{
+			// 초기엔 거리값을 최대값으로 초기화
+			min = ts * ts * 2;
+			for (int k = 1; k < ts; k++)
+			{
+				for (int y = -k; y <= k; y++)
+				{
+					if (i + y < 0 || i + y >= ts)
+						continue;
+					for (int x = -k; x <= k; x++)
+					{
+						if (j + x < 0 || j + x >= ts)
+							continue;
+						if (x == k || y == k || x == -k || y == -k)
+						{
+							if (T[i + y][j + x] <= T[i][j])
+							{
+								distance = y * y + x * x;
+								if (distance < min)
+								{
+									min = distance;
+								}
+							}
+						}
+					}
+				}
+				// 거리의 값이 결정된 경우 반복문 탈출
+				if (min != ts * ts * 2)
+					break;
+			}
+			sum += min;
+		}
+	}
+
+	return sum;
+}
+void BayerMatrix(int n)
+{
+	int count = 2;
+	// 임계값 행렬 초기값 설정
+	T[0][0] = 0.0;
+	T[0][1] = 2.0;
+	T[1][0] = 3.0;
+	T[1][1] = 1.0;
+
+	while (count < n)
+	{
+		for (int i = 0; i < count; i++)
+		{
+			for (int j = 0; j < count; j++)
+			{
+				T[i][j] *= 4;
+				T[i][j + count] = T[i][j] + 2;
+				T[i + count][j] = T[i][j] + 3;
+				T[i + count][j + count] = T[i][j] + 1;
+			}
+		}
+		count *= 2;
+	}
+
+	for (int i = 0; i < n; i++)
+	{
+		for (int j = 0; j < n; j++)
+		{
+			T[i][j] /= n * n;
+			//printf("%lf ", (double)T[i][j]);
+		}
+		//printf("\n");
+	}
+
+}
+/*
 // 가우시안 필터
+void GaussianFilter(float thresh)
+{
+	float g = thresh;
+	// 5 X 5 마스크
+	float a = 1 / g;
+	float b = 4 / g;
+	float c = 6 / g;
+	float d = 12 / g;
+	float e = 24 / g;
+	float f = 36 / g;
+	// 가우시안 필터 마스크 배열
+	float G[5][5] =
+	{
+		a, b, c, b, a,
+		b, d, e, d, b,
+		c, e, f, e, c,
+		b, d, e, d, b,
+		a, b, c, b, a
+	};
+	for (int y = 1; y < bph - 1; y++)
+	{
+		for (int x = 1; x < bpl - 1; x++)
+		{
+			for (int k = 0; k < 5; k++)
+			{
+				for (int l = 0; l < 5; l++)
+				{
+					pix_ms[y * bpl + x] += pix[(y + k - 2) * bpl + (x + l - 2)] * G[k][l];
+				}
+			}
+		}
+	}
+
+	// 3 X 3 마스크
+	float a = 0 / g;
+	float b = 1 / g;
+	float c = 2 / g;
+	float G[3][3] =
+	{
+		a, b, a,
+		b, c, b,
+		a, b, a
+	};
+	for (int y = 1; y < bph - 1; y++)
+	{
+		for (int x = 1; x < bpl - 1; x++)
+		{
+			for (int k = 0; k < 3; k++)
+			{
+				for (int l = 0; l < 3; l++)
+				{
+					pix_ms[y * bpl + x] += pix[(y + k - 1) * bpl + (x + l - 1)] * G[k][l];
+				}
+			}
+		}
+	}
+}
+*/
+// 
 double GaussianRandom(double stddev, double average)
 {
 	double v1, v2, s, temp;
@@ -366,7 +617,19 @@ double GaussianRandom(double stddev, double average)
 }
 void Halftone()
 {
+	// Thresh Hold
+	/*
+	for (int y = 1; y < bph - 1; y++)
+	{
+		for (int x = 1; x < bpl - 1; x++)
+		{
+			pix_hvs[y * bpl + x] = pix[y * bpl + x] / 128 * 255;
+		}
+	}
+	*/
+
 	// 정규분포 난수로 하프톤이미지 생성
+
 	srand(time(NULL));
 	double tmp;
 
@@ -378,59 +641,123 @@ void Halftone()
 			//printf("%lf\n", tmp);
 			if (tmp > 0)
 			{
-				if (pix_check[y * width + x] == 0)
+				//if (pix_check[y * width + x] == 0)
 					pix_hvs[y * width + x] = 255;
 			}
 		}
 	}
+
 }
 void Dither()
 {
-	BITMAPFILEHEADER bfh_bnm;
-	BITMAPINFOHEADER bih_bnm;
-	RGBQUAD * rgb_bnm;
-	unsigned char pix_bnm[256][256];
-	int ms = 256;
-	FILE* fp_bnm;
-	fp_bnm = fopen("BNM_256.bmp", "rb");
-	if (fp_bnm == NULL)
-	{
-		printf("Maskfile Not Found!!\n");
-		system("pause");
-		exit(0);
-	}
-	fread(&bfh_bnm, sizeof(bfh), 1, fp_bnm);
-	fread(&bih_bnm, sizeof(bih), 1, fp_bnm);
-	rgb_bnm = (RGBQUAD*)malloc(sizeof(RGBQUAD) * 256);
-	fread(rgb, sizeof(RGBQUAD), 256, fp_bnm);
+	// Ordered Dither
+	/*
+	BayerMatrix(ts); // Threshold array 생성
 
-	for (int i = 0; i < ms; i++)
+	for (int y = 1; y < bph - 1; y++)
 	{
-		fread(pix_bnm[i], sizeof(unsigned char), ms, fp_bnm);
-	}
-	fclose(fp_bnm);
-
-
-	// Ordered Dithering based BNM(Blue Noise Mask)
-	for (int i = 0; i < height; i++)
-	{
-		for (int j = 0; j < width; j++)
+		for (int x = 1; x < bpl - 1; x++)
 		{
-			if (pix[i * width + j] < D)
+			if (pix[y * bpl + x] > T[y % ts][x % ts] * 255)
 			{
-				pix_check[i * width + j] = 1;
-				if (pix[i * width + j] >= pix_bnm[i % ms][j % ms] && pix[i * width + j] != 0)
-					pix_hvs[i * width + j] = 255;
-			}
-			else if (pix[i * width + j] > 255 - D)
-			{
-				pix_check[i * width + j] = 1;
-				if (pix[i * width + j] >= pix_bnm[i % ms][j % ms] && pix[i * width + j] != 0)
-					pix_hvs[i * width + j] = 255;
+				pix_hvs[y * bpl + x] = 255;
+				pix_check[y * bpl + x] = 1;
 			}
 		}
 	}
+	*/
 
+	// Ordered Dithering based DBS
+
+	Threshold(ts);	// Threshold array 생성
+
+	for (int y = 1; y < height - 1; y++)
+	{
+		for (int x = 1; x < width - 1; x++)
+		{
+			if (pix[y * width + x] < D)
+			{
+				//pix_hvs[y * bpl + x] = pix[y * bpl + x];
+				if (pix[y * width + x] > T[y % ts][x % ts])
+				{
+					pix_hvs[y * width + x] = 255;
+					pix_check[y * width + x] = 1;
+				}
+			}
+			else if (pix[y * width + x] > 255 - D)
+			{
+				//pix_hvs[y * bpl + x] = pix[y * bpl + x];
+				if (pix[y * width + x] < 255 - T[y % ts][x % ts])
+				{
+					pix_hvs[y * width + x] = 0;
+					pix_check[y * width + x] = 1;
+				}
+				else
+				{
+					pix_hvs[y * bpl + x] = 255;
+				}
+			}
+
+		}
+	}
+
+	// Floyd Steinberg 양방향
+	/*
+	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
+
+	for (int y = 1; y < height - 1; y++)
+	{
+		if (y % 2 == 1)
+		{
+			for (int x = 1; x < width - 1; x++)
+			{
+				pixE[y * width + x] += pix_hvs[y * width + x];
+				pix_hvs[y * width + x] = pixE[y * width + x] / 128 * 255;
+				quant_error = pixE[y * width + x] - pix_hvs[y * width + x];
+
+				pixE[y * width + x + 1] += quant_error * 7 / 16;
+				pixE[(y + 1) * width + x - 1] += quant_error * 3 / 16;
+				pixE[(y + 1) * width + x] += quant_error * 5 / 16;
+				pixE[(y + 1) * width + x + 1] += quant_error * 1 / 16;
+			}
+		}
+		else
+		{
+			for (int x = width - 2; x >= 1; x--)
+			{
+				pixE[y * width + x] += pix_hvs[y * width + x];
+				pix_hvs[y * width + x] = pixE[y * width + x] / 128 * 255;
+				quant_error = pixE[y * width + x] - pix_hvs[y * width + x];
+
+				pixE[y * width + x - 1] += quant_error * 7 / 16;
+				pixE[(y + 1) * width + x + 1] += quant_error * 3 / 16;
+				pixE[(y + 1) * width + x] += quant_error * 5 / 16;
+				pixE[(y + 1) * width + x - 1] += quant_error * 1 / 16;
+			}
+		}
+	}
+	*/
+	// Floyd Steinberg 단방향
+	/*
+	int quant_error = 0;	// 초기 디더링 작업을 할때 쓰일 에러 가중치 변수
+
+	for (int y = 1; y < height - 1; y++)
+	{
+		for (int x = 1; x < width - 1; x++)
+		{
+
+			pixE[y * width + x] += pix_hvs[y * width + x];
+			pix_hvs[y * width + x] = pixE[y * width + x] / 128 * 255;
+			quant_error = pixE[y * width + x] - pix_hvs[y * width + x];
+
+			pixE[y * width + x + 1] += quant_error * 7 / 16;
+			pixE[(y + 1) * width + x - 1] += quant_error * 3 / 16;
+			pixE[(y + 1) * width + x] += quant_error * 5 / 16;
+			pixE[(y + 1) * width + x + 1] += quant_error * 1 / 16;
+
+		}
+	}
+	*/
 }
 void Fread(FILE *fp)
 {
