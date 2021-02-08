@@ -296,7 +296,7 @@ void Floyd_Steinberg()
 		}
 		else
 		{
-			for (int x = width - 2; x >= 1; x--)
+			for (int x = width - 1; x >= 1; x--)
 			{
 				pix_e[y * width + x] += pix_h[y * width + x];
 				pix_h[y * width + x] = pix_e[y * width + x] / 128 * 255;
@@ -366,7 +366,7 @@ void Siau_and_Fan()
 		}
 		else
 		{
-			for (int x = width - 4; x >= 1; x--)
+			for (int x = width - 3; x >= 1; x--)
 			{
 				pix_e[y * width + x] += pix_h[y * width + x];
 				pix_h[y * width + x] = pix_e[y * width + x] / 128 * 255;
