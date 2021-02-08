@@ -93,7 +93,6 @@ int main(void)
 	printf("Total processing Time_Blue_Noise_Mask : %lf Sec\n", total_Time);
 	printf("\n");
 
-	/*
 	total_Time = 0;
 	QueryPerformanceCounter(&tot_beginClock); // 시간측정 시작
 	Direct_Binary_Search();
@@ -101,7 +100,7 @@ int main(void)
 	total_Time = (double)(tot_endClock.QuadPart - tot_beginClock.QuadPart) / tot_clockFreq.QuadPart;
 	printf("Total processing Time_DBS : %lf Sec\n", total_Time);
 	printf("\n");
-	*/
+
 	system("pause");
 	return 0;
 }
