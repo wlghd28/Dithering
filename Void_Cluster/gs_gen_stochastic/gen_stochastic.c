@@ -574,7 +574,7 @@ do_dot:
 	for (Y = 0; Y < array_height; Y++) {
 		for (X = 0; X < array_width; X++) {
 			//printf(" %6d", ThresholdArray[X][Y]);
-			fprintf(fp, "%d, ", ThresholdArray[X][Y]);		
+			fprintf(fp, "%d, ", ThresholdArray[X][Y] / (array_width / 2) /*resolution의 절반 값으로 나눠준다.*/);
 		}	/* end for X -- rows */
 		fprintf(fp, "\n");
 	}   /* end for Y -- columns */
