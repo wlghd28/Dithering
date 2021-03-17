@@ -569,6 +569,17 @@ do_dot:
     }
     code = 0;				/* normal return */
     fclose(fp);
+
+	fp = fopen("mask.txt", "w");
+	for (Y = 0; Y < array_height; Y++) {
+		for (X = 0; X < array_width; X++) {
+			//printf(" %6d", ThresholdArray[X][Y]);
+			fprintf(fp, "%d, ", ThresholdArray[X][Y]);		
+		}	/* end for X -- rows */
+		fprintf(fp, "\n");
+	}   /* end for Y -- columns */
+
+	fclose(fp);
 #ifdef USE_GSDLL
     close_gs_display();
 #endif
@@ -657,7 +668,16 @@ do_dot(int choice_X, int choice_Y, int level, int last)
     value = Val[ choice_Y * array_width + choice_X ];
     value = (value-MinVal) / ValRange;
     fprintf(fp,"%d\t%d\n",choice_X,choice_Y);
-
+	/*
+	if((choice_Y * array_width + choice_X) % 512 == 0)
+	{
+		fprintf(fp, "\n%d, ", value);
+	}
+	else
+	{
+		fprintf(fp, "%d, ", value);
+	}
+	*/
 #ifdef USE_GSDLL
     if ((code=update_gs_dot(choice_X, choice_Y, last)) < 0)
         return -1;
