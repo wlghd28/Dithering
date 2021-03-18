@@ -569,17 +569,37 @@ do_dot:
     }
     code = 0;				/* normal return */
     fclose(fp);
+	
+	if (array_width <= 256)
+	{
+		int ratio = 256 / array_width;
+		ratio *= ratio;
+		fp = fopen("mask.txt", "w");
+		for (Y = 0; Y < array_height; Y++) {
+			for (X = 0; X < array_width; X++) {
+				//printf(" %6d", ThresholdArray[X][Y]);
+				fprintf(fp, "%d, ", ThresholdArray[X][Y] / (256 / ratio) /*resolution의 절반 값으로 나눠준다.*/);
+			}	/* end for X -- rows */
+			fprintf(fp, "\n");
+		}   /* end for Y -- columns */
 
-	fp = fopen("mask.txt", "w");
-	for (Y = 0; Y < array_height; Y++) {
-		for (X = 0; X < array_width; X++) {
-			//printf(" %6d", ThresholdArray[X][Y]);
-			fprintf(fp, "%d, ", ThresholdArray[X][Y] / (array_width / 2) /*resolution의 절반 값으로 나눠준다.*/);
-		}	/* end for X -- rows */
-		fprintf(fp, "\n");
-	}   /* end for Y -- columns */
+		fclose(fp);
+	}
+	else if (array_width > 256)
+	{
+		int ratio = array_width / 256;
+		ratio *= ratio;
+		fp = fopen("mask.txt", "w");
+		for (Y = 0; Y < array_height; Y++) {
+			for (X = 0; X < array_width; X++) {
+				//printf(" %6d", ThresholdArray[X][Y]);
+				fprintf(fp, "%d, ", ThresholdArray[X][Y] / (256 * ratio) /*resolution의 절반 값으로 나눠준다.*/);
+			}	/* end for X -- rows */
+			fprintf(fp, "\n");
+		}   /* end for Y -- columns */
 
-	fclose(fp);
+		fclose(fp);
+	}
 #ifdef USE_GSDLL
     close_gs_display();
 #endif
