@@ -56,20 +56,20 @@ int main(void)
 	TIFFSetField(output, TIFFTAG_YRESOLUTION, yres);
 	TIFFSetField(output, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 	TIFFSetField(output, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-	TIFFSetField(output, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+	//TIFFSetField(output, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
 	TIFFSetField(output, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_UINT);
 	TIFFSetField(output, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 
 	for (int y = 0; y < height; y++)
 	{
 		TIFFReadScanline(input, pix_buf, y, 0);
-		memset(pix_out, 255, (width + 7) / 8);
+		memset(pix_out, 0, (width + 7) / 8);
 		for (int x = 0; x < width; x++)
 		{
 
 			if (pix_buf[x] != 0 && pix_buf[x] >= mask[(y % ms_y)][(x % ms_x)])
 			{
-				pix_out[x / 8] -= bit8_array[x % 8];
+				pix_out[x / 8] += bit8_array[x % 8];
 			}
 		}
 		TIFFWriteScanline(output, pix_out, y, 0);
