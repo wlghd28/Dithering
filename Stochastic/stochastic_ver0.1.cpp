@@ -13,7 +13,7 @@ BYTE* pix_buf;
 BYTE* pix_out;
 long width, height;
 long pix_size;
-int xres, yres;
+long xres, yres;
 //int pad;
 //BYTE trash[3] = { 0 }; // 쓰레기 값
 
@@ -63,13 +63,13 @@ int main(void)
 	for (int y = 0; y < height; y++)
 	{
 		TIFFReadScanline(input, pix_buf, y, 0);
-		memset(pix_out, 0, (width + 7) / 8);
+		memset(pix_out, 255, (width + 7) / 8);
 		for (int x = 0; x < width; x++)
 		{
 
 			if (pix_buf[x] != 0 && pix_buf[x] >= mask[(y % ms_y)][(x % ms_x)])
 			{
-				pix_out[x / 8] += bit8_array[x % 8];
+				pix_out[x / 8] -= bit8_array[x % 8];
 			}
 		}
 		TIFFWriteScanline(output, pix_out, y, 0);
