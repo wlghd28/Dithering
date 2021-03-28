@@ -13,7 +13,8 @@ BYTE* pix_buf;
 BYTE* pix_out;
 long width, height;
 long pix_size;
-long xres, yres;
+float xres, yres;
+uint32 min_color;
 //int pad;
 //BYTE trash[3] = { 0 }; // 쓰레기 값
 
@@ -36,12 +37,15 @@ int main(void)
 	TIFFGetField(input, TIFFTAG_ICCPROFILE, &count, &icc_profile);
 	TIFFGetField(input, TIFFTAG_XRESOLUTION, &xres);
 	TIFFGetField(input, TIFFTAG_YRESOLUTION, &yres);
+	TIFFGetField(input, TIFFTAG_YRESOLUTION, &yres);
+	TIFFGetField(input, TIFFTAG_PHOTOMETRIC, &min_color);
 	pix_buf = (BYTE *)calloc(width , sizeof(BYTE));	// line scan memory
 	pix_out = (BYTE *)calloc((width + 7) / 8, sizeof(BYTE));	// line output memory
 	pix_size = width * height;
 	printf("width : %d , height : %d\n", width, height);
 	printf("image size : %d X %d\n", width, height);
-	printf("resolution : %d X %d\n", xres, yres);
+	printf("resolution : %f X %f\n", xres, yres);
+	printf("min_color : %d\n", min_color);
 
 	// 디더링 결과 tiff 파일 쓰기
 	output = TIFFOpen("output_Stochastic.tif", "wb");
@@ -51,12 +55,12 @@ int main(void)
 	TIFFSetField(output, TIFFTAG_BITSPERSAMPLE, 1);
 	TIFFSetField(output, TIFFTAG_SAMPLESPERPIXEL, 1);
 	TIFFSetField(output, TIFFTAG_ROWSPERSTRIP, 1);
-	//TIFFSetField(output, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
+	TIFFSetField(output, TIFFTAG_RESOLUTIONUNIT, RESUNIT_INCH);
 	TIFFSetField(output, TIFFTAG_XRESOLUTION, xres);
 	TIFFSetField(output, TIFFTAG_YRESOLUTION, yres);
 	TIFFSetField(output, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
-	TIFFSetField(output, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-	//TIFFSetField(output, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+	//TIFFSetField(output, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+	TIFFSetField(output, TIFFTAG_PHOTOMETRIC, min_color);
 	TIFFSetField(output, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_UINT);
 	TIFFSetField(output, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 
